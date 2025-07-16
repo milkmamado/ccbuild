@@ -207,12 +207,6 @@ const Index = () => {
   return (
     <div className="min-h-screen bg-background p-4">
       <div className="max-w-4xl mx-auto">
-        <div className="text-center mb-8">
-          <div className="flex items-center justify-center gap-2 mb-4">
-            <User className="h-8 w-8 text-primary" />
-            <h1 className="text-4xl font-bold">암환자 캐릭터 생성기</h1>
-          </div>
-        </div>
 
         <Card>
           <CardHeader>
