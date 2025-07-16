@@ -138,11 +138,11 @@ const Index = () => {
         <div className="text-center mb-8">
           <div className="flex items-center justify-center gap-2 mb-4">
             <User className="h-8 w-8 text-primary" />
-            <h1 className="text-4xl font-bold">CancerPersona Builder</h1>
+            <h1 className="text-4xl font-bold">정신이 아득해지는</h1>
           </div>
-          <p className="text-xl text-muted-foreground">암환자 캐릭터 생성기</p>
+          <p className="text-xl text-muted-foreground">MZ 암환자 캐릭터 생성기</p>
           <p className="text-sm text-muted-foreground mt-2">
-            의학적으로 정확한 가상 환자 캐릭터를 생성합니다
+            저는 MZ입니다
           </p>
         </div>
 
