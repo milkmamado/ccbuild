@@ -21,11 +21,7 @@ const Index = () => {
     hospital: "",
     diagnosisDate: undefined as Date | undefined,
     cancerType: "",
-    stage: "",
-    surgery: "",
-    chemotherapy: "",
-    radiation: "",
-    additionalTreatment: ""
+    stage: ""
   });
 
   const [generatedContent, setGeneratedContent] = useState("");
@@ -72,87 +68,12 @@ const Index = () => {
     "서울성모병원", "고려대병원"
   ];
 
-  // 암종별 치료 옵션 정의
-  const treatmentOptions = {
-    "유방암": {
-      surgery: ["유방보존술", "유방전절제술", "없음"],
-      chemotherapy: ["AC-T(8회)", "TC(4회)", "AC(4회)", "없음"],
-      radiation: ["있음", "없음"],
-      additional: ["호르몬치료", "표적치료", "없음"]
-    },
-    "갑상선암": {
-      surgery: ["갑상선전절제술", "엽절제술", "없음"],
-      chemotherapy: ["없음"],
-      radiation: ["방사성요오드", "없음"],
-      additional: ["TSH억제요법", "없음"]
-    },
-    "대장암": {
-      surgery: ["근치적절제술", "복강경수술", "없음"],
-      chemotherapy: ["FOLFOX(12회)", "CAPOX(8회)", "5-FU/LV", "없음"],
-      radiation: ["있음", "없음"],
-      additional: ["표적치료", "없음"]
-    },
-    "폐암": {
-      surgery: ["폐엽절제술", "쐐기절제술", "없음"],
-      chemotherapy: ["카보플라틴+파클리탁셀", "시스플라틴+페메트렉세드", "없음"],
-      radiation: ["있음", "없음"],
-      additional: ["표적치료", "면역항암제", "없음"]
-    },
-    "위암": {
-      surgery: ["위전절제술", "위부분절제술", "없음"],
-      chemotherapy: ["S-1보조요법", "CAPOX", "없음"],
-      radiation: ["있음", "없음"],
-      additional: ["표적치료", "없음"]
-    },
-    "간암": {
-      surgery: ["부분절제술", "구역절제술", "간이식", "없음"],
-      chemotherapy: ["TACE", "고주파열치료", "없음"],
-      radiation: ["방사선치료", "없음"],
-      additional: ["표적치료(소라페닙)", "표적치료(렌바티닙)", "면역항암제", "없음"]
-    },
-    "췌장암": {
-      surgery: ["췌십이지장절제술", "원위부췌절제술", "없음"],
-      chemotherapy: ["젬시타빈+납-파클리탁셀", "FOLFIRINOX", "젬시타빈", "없음"],
-      radiation: ["있음", "없음"],
-      additional: ["없음"]
-    },
-    "전립선암": {
-      surgery: ["근치적전립선절제술", "없음"],
-      chemotherapy: ["없음"],
-      radiation: ["외부방사선", "근접방사선", "없음"],
-      additional: ["호르몬치료", "없음"]
-    },
-    "자궁경부암": {
-      surgery: ["근치적자궁절제술", "자궁절제술", "없음"],
-      chemotherapy: ["시스플라틴", "카보플라틴+파클리탁셀", "없음"],
-      radiation: ["외부방사선", "근접방사선", "없음"],
-      additional: ["없음"]
-    },
-    "난소암": {
-      surgery: ["종양감축술", "난소절제술", "없음"],
-      chemotherapy: ["카보플라틴+파클리탁셀", "없음"],
-      radiation: ["없음"],
-      additional: ["유지치료", "없음"]
-    }
-  };
-
-  // 선택된 암종에 따른 치료 옵션 가져오기
-  const getCurrentTreatmentOptions = () => {
-    if (!formData.cancerType) return null;
-    return treatmentOptions[formData.cancerType as keyof typeof treatmentOptions];
-  };
-
-  const currentOptions = getCurrentTreatmentOptions();
-
   const handleRandomGenerate = () => {
     const randomName = ["김미영", "박순례", "최영수", "이정희", "홍길동"][Math.floor(Math.random() * 5)];
     const randomAge = Math.floor(Math.random() * 60) + 30;
     const randomGender = Math.random() > 0.5 ? "여" : "남";
     const randomCancerType = cancerTypes[Math.floor(Math.random() * cancerTypes.length)];
     const randomStage = stages[Math.floor(Math.random() * stages.length)];
-    
-    // 선택된 암종에 맞는 치료 옵션 사용
-    const options = treatmentOptions[randomCancerType as keyof typeof treatmentOptions];
     
     setFormData({
       name: randomName,
@@ -161,11 +82,7 @@ const Index = () => {
       hospital: hospitals[Math.floor(Math.random() * hospitals.length)],
       diagnosisDate: new Date(Date.now() - Math.floor(Math.random() * 365 * 2) * 24 * 60 * 60 * 1000),
       cancerType: randomCancerType,
-      stage: randomStage,
-      surgery: options.surgery[Math.floor(Math.random() * options.surgery.length)],
-      chemotherapy: options.chemotherapy[Math.floor(Math.random() * options.chemotherapy.length)],
-      radiation: options.radiation[Math.floor(Math.random() * options.radiation.length)],
-      additionalTreatment: options.additional[Math.floor(Math.random() * options.additional.length)]
+      stage: randomStage
     });
   };
 
@@ -225,11 +142,7 @@ const Index = () => {
       hospital: "",
       diagnosisDate: undefined,
       cancerType: "",
-      stage: "",
-      surgery: "",
-      chemotherapy: "",
-      radiation: "",
-      additionalTreatment: ""
+      stage: ""
     });
   };
 
@@ -267,7 +180,7 @@ const Index = () => {
           <CardHeader>
             <CardTitle>캐릭터 정보 입력</CardTitle>
             <CardDescription>
-              환자 기본 정보와 치료 계획을 입력해주세요
+              환자 기본 정보를 입력하면 AI가 병기별 표준치료를 자동으로 결정합니다
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-6">
@@ -382,83 +295,17 @@ const Index = () => {
               </Select>
             </div>
 
-            {/* 치료 옵션 */}
-            <div className="border-t pt-6">
-              <h3 className="text-lg font-semibold mb-4">치료 옵션</h3>
-              
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label>수술</Label>
-                  <Select 
-                    value={formData.surgery} 
-                    onValueChange={(value) => setFormData({...formData, surgery: value})}
-                    disabled={!currentOptions}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder={currentOptions ? "수술 옵션 선택" : "먼저 암종을 선택하세요"} />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {currentOptions?.surgery.map((option) => (
-                        <SelectItem key={option} value={option}>{option}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                <div className="space-y-2">
-                  <Label>항암치료</Label>
-                  <Select 
-                    value={formData.chemotherapy} 
-                    onValueChange={(value) => setFormData({...formData, chemotherapy: value})}
-                    disabled={!currentOptions}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder={currentOptions ? "항암치료 옵션 선택" : "먼저 암종을 선택하세요"} />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {currentOptions?.chemotherapy.map((option) => (
-                        <SelectItem key={option} value={option}>{option}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
-                <div className="space-y-2">
-                  <Label>방사선치료</Label>
-                  <Select 
-                    value={formData.radiation} 
-                    onValueChange={(value) => setFormData({...formData, radiation: value})}
-                    disabled={!currentOptions}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder={currentOptions ? "방사선치료 옵션 선택" : "먼저 암종을 선택하세요"} />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {currentOptions?.radiation.map((option) => (
-                        <SelectItem key={option} value={option}>{option}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                <div className="space-y-2">
-                  <Label>추가치료</Label>
-                  <Select 
-                    value={formData.additionalTreatment} 
-                    onValueChange={(value) => setFormData({...formData, additionalTreatment: value})}
-                    disabled={!currentOptions}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder={currentOptions ? "추가치료 옵션 선택" : "먼저 암종을 선택하세요"} />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {currentOptions?.additional.map((option) => (
-                        <SelectItem key={option} value={option}>{option}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+            {/* 안내 메시지 */}
+            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+              <div className="flex items-start gap-2">
+                <div className="text-blue-600 text-sm">
+                  <strong>💡 자동 치료 결정:</strong>
+                  <br />
+                  선택하신 암종과 병기에 따라 AI가 의학적 가이드라인에 맞는 표준치료를 자동으로 결정합니다.
+                  <br />
+                  • 병기별 1차 표준치료만 선택
+                  • 부적절한 치료 조합 방지  
+                  • 과치료 예방
                 </div>
               </div>
             </div>
