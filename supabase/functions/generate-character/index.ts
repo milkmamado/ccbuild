@@ -38,60 +38,72 @@ serve(async (req) => {
       });
     }
 
-    // 사용자 제한 확인
-    const { data: userLimit } = await supabase
-      .from('user_limits')
-      .select('daily_limit, monthly_limit')
-      .eq('user_id', user.id)
+    // 마스터 관리자 확인 (torogrr@kakao.com은 무제한)
+    const { data: userProfile } = await supabase
+      .from('profiles')
+      .select('email, role')
+      .eq('id', user.id)
       .single();
 
-    if (!userLimit) {
-      return new Response(JSON.stringify({ 
-        success: false, 
-        error: '사용자 제한 설정을 찾을 수 없습니다.' 
-      }), {
-        status: 400,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
-    }
+    const isMasterAdmin = userProfile?.email === 'torogrr@kakao.com' && userProfile?.role === 'admin';
 
-    // 일일 사용량 확인
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    
-    const { count: dailyCount } = await supabase
-      .from('character_generations')
-      .select('*', { count: 'exact', head: true })
-      .eq('user_id', user.id)
-      .gte('created_at', today.toISOString());
+    // 마스터 관리자가 아닌 경우에만 제한 확인
+    if (!isMasterAdmin) {
+      // 사용자 제한 확인
+      const { data: userLimit } = await supabase
+        .from('user_limits')
+        .select('daily_limit, monthly_limit')
+        .eq('user_id', user.id)
+        .single();
 
-    if ((dailyCount || 0) >= userLimit.daily_limit) {
-      return new Response(JSON.stringify({ 
-        success: false, 
-        error: `일일 생성 한도(${userLimit.daily_limit}회)를 초과했습니다.` 
-      }), {
-        status: 429,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
-    }
+      if (!userLimit) {
+        return new Response(JSON.stringify({ 
+          success: false, 
+          error: '사용자 제한 설정을 찾을 수 없습니다.' 
+        }), {
+          status: 400,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
 
-    // 월간 사용량 확인
-    const monthStart = new Date(today.getFullYear(), today.getMonth(), 1);
-    
-    const { count: monthlyCount } = await supabase
-      .from('character_generations')
-      .select('*', { count: 'exact', head: true })
-      .eq('user_id', user.id)
-      .gte('created_at', monthStart.toISOString());
+      // 일일 사용량 확인
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      
+      const { count: dailyCount } = await supabase
+        .from('character_generations')
+        .select('*', { count: 'exact', head: true })
+        .eq('user_id', user.id)
+        .gte('created_at', today.toISOString());
 
-    if ((monthlyCount || 0) >= userLimit.monthly_limit) {
-      return new Response(JSON.stringify({ 
-        success: false, 
-        error: `월간 생성 한도(${userLimit.monthly_limit}회)를 초과했습니다.` 
-      }), {
-        status: 429,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
+      if ((dailyCount || 0) >= userLimit.daily_limit) {
+        return new Response(JSON.stringify({ 
+          success: false, 
+          error: `일일 생성 한도(${userLimit.daily_limit}회)를 초과했습니다.` 
+        }), {
+          status: 429,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+
+      // 월간 사용량 확인
+      const monthStart = new Date(today.getFullYear(), today.getMonth(), 1);
+      
+      const { count: monthlyCount } = await supabase
+        .from('character_generations')
+        .select('*', { count: 'exact', head: true })
+        .eq('user_id', user.id)
+        .gte('created_at', monthStart.toISOString());
+
+      if ((monthlyCount || 0) >= userLimit.monthly_limit) {
+        return new Response(JSON.stringify({ 
+          success: false, 
+          error: `월간 생성 한도(${userLimit.monthly_limit}회)를 초과했습니다.` 
+        }), {
+          status: 429,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
     }
 
 const prompt = `
