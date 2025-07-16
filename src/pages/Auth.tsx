@@ -109,6 +109,23 @@ const Auth = () => {
       }
 
       if (data.user) {
+        // 프로필을 수동으로 생성
+        const { error: profileError } = await supabase
+          .from('profiles')
+          .insert([
+            {
+              id: data.user.id,
+              email: data.user.email,
+              full_name: fullName,
+              role: data.user.email === 'torogrr@kakao.com' ? 'admin' : 'user',
+              approval_status: data.user.email === 'torogrr@kakao.com' ? 'approved' : 'pending'
+            }
+          ]);
+
+        if (profileError) {
+          console.error('프로필 생성 오류:', profileError);
+        }
+
         toast({
           title: "회원가입 완료",
           description: "관리자 승인 후 로그인이 가능합니다.",
