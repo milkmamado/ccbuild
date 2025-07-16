@@ -6,9 +6,11 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { CalendarIcon, Dice6, User } from "lucide-react";
+import { CalendarIcon, Dice6, User, Copy, RotateCcw, Loader2 } from "lucide-react";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
+import { useToast } from "@/hooks/use-toast";
+import { supabase } from "@/integrations/supabase/client";
 
 const Index = () => {
   const [formData, setFormData] = useState({
@@ -24,6 +26,10 @@ const Index = () => {
     radiation: "",
     additionalTreatment: ""
   });
+
+  const [generatedContent, setGeneratedContent] = useState("");
+  const [isGenerating, setIsGenerating] = useState(false);
+  const { toast } = useToast();
 
   const cancerTypes = [
     "유방암", "갑상선암", "대장암", "폐암", "위암", 
@@ -62,10 +68,68 @@ const Index = () => {
     });
   };
 
-  const handleSubmit = () => {
-    // TODO: Claude API 연동 (Supabase 연동 후)
-    console.log("Generated character:", formData);
-    alert("Supabase 연동 후 Claude API로 캐릭터를 생성할 예정입니다!");
+  const handleSubmit = async () => {
+    if (!formData.name || !formData.age || !formData.cancerType) {
+      toast({
+        title: "필수 정보 누락",
+        description: "이름, 나이, 암종은 필수 입력 항목입니다.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsGenerating(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('generate-character', {
+        body: { formData }
+      });
+
+      if (error) throw error;
+
+      if (data.success) {
+        setGeneratedContent(data.content);
+        toast({
+          title: "캐릭터 생성 완료",
+          description: "암환자 캐릭터가 성공적으로 생성되었습니다.",
+        });
+      } else {
+        throw new Error(data.error);
+      }
+    } catch (error) {
+      console.error('캐릭터 생성 오류:', error);
+      toast({
+        title: "생성 실패",
+        description: "캐릭터 생성 중 오류가 발생했습니다.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsGenerating(false);
+    }
+  };
+
+  const handleCopy = () => {
+    navigator.clipboard.writeText(generatedContent);
+    toast({
+      title: "복사 완료",
+      description: "생성된 내용이 클립보드에 복사되었습니다.",
+    });
+  };
+
+  const handleReset = () => {
+    setGeneratedContent("");
+    setFormData({
+      name: "",
+      age: "",
+      gender: "",
+      hospital: "",
+      diagnosisDate: undefined,
+      cancerType: "",
+      stage: "",
+      surgery: "",
+      chemotherapy: "",
+      radiation: "",
+      additionalTreatment: ""
+    });
   };
 
   return (
@@ -268,8 +332,15 @@ const Index = () => {
 
             {/* 버튼 */}
             <div className="flex gap-4 pt-6">
-              <Button onClick={handleSubmit} className="flex-1">
-                📝 캐릭터 생성하기
+              <Button onClick={handleSubmit} className="flex-1" disabled={isGenerating}>
+                {isGenerating ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    생성 중...
+                  </>
+                ) : (
+                  "📝 캐릭터 생성하기"
+                )}
               </Button>
               <Button onClick={handleRandomGenerate} variant="outline" className="flex items-center gap-2">
                 <Dice6 className="h-4 w-4" />
@@ -278,6 +349,37 @@ const Index = () => {
             </div>
           </CardContent>
         </Card>
+
+        {generatedContent && (
+          <Card className="mt-6">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <User className="h-5 w-5" />
+                생성된 캐릭터
+              </CardTitle>
+              <CardDescription>
+                AI가 생성한 암환자 캐릭터 정보입니다
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="flex gap-2 mb-4">
+                <Button onClick={handleCopy} variant="outline" size="sm">
+                  <Copy className="mr-2 h-4 w-4" />
+                  복사
+                </Button>
+                <Button onClick={handleReset} variant="outline" size="sm">
+                  <RotateCcw className="mr-2 h-4 w-4" />
+                  새로 생성
+                </Button>
+              </div>
+              <div className="bg-muted/50 rounded-lg p-4">
+                <pre className="whitespace-pre-wrap text-sm leading-relaxed">
+                  {generatedContent}
+                </pre>
+              </div>
+            </CardContent>
+          </Card>
+        )}
       </div>
     </div>
   );
