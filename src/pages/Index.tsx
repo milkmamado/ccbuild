@@ -34,6 +34,16 @@ const Index = () => {
     fetchUserProfile();
   }, []);
 
+  // 암종이나 병기가 변경되면 수술방법 초기화
+  useEffect(() => {
+    if (formData.cancerType && formData.stage) {
+      const options = getSurgeryOptions(formData.cancerType, formData.stage);
+      if (!options.includes(formData.surgeryMethod)) {
+        setFormData(prev => ({ ...prev, surgeryMethod: "" }));
+      }
+    }
+  }, [formData.cancerType, formData.stage]);
+
   const fetchUserProfile = async () => {
     try {
       const { data: { user } } = await supabase.auth.getUser();
@@ -69,6 +79,76 @@ const Index = () => {
     "서울성모병원", "고려대병원"
   ];
 
+  // 암종별 병기별 수술방법 매핑
+  const getSurgeryOptions = (cancerType: string, stage: string) => {
+    const surgeryMap: Record<string, Record<string, string[]>> = {
+      "유방암": {
+        "1기(초기)": ["유방보존술", "유방전절제술", "유방전절제술+즉시재건"],
+        "2기(중기)": ["유방보존술", "유방전절제술", "유방전절제술+즉시재건"],
+        "3기(진행)": ["유방전절제술 (선행항암 후)", "유방전절제술+즉시재건 (선행항암 후)"],
+        "4기(말기)": ["완화적 수술 (증상 완화용)", "수술 불가 (전신치료 우선)"]
+      },
+      "갑상선암": {
+        "1기(초기)": ["갑상선엽절제술", "갑상선전절제술"],
+        "2기(중기)": ["갑상선엽절제술", "갑상선전절제술"],
+        "3기(진행)": ["갑상선전절제술+림프절절제"],
+        "4기(말기)": ["갑상선전절제술+림프절절제"]
+      },
+      "대장암": {
+        "1기(초기)": ["내시경절제술", "경항문절제술 (직장암)", "개복수술", "복강경수술", "로봇수술"],
+        "2기(중기)": ["개복수술", "복강경수술", "로봇수술"],
+        "3기(진행)": ["개복수술", "복강경수술", "로봇수술"],
+        "4기(말기)": ["완화적 수술", "수술 불가 (항암치료 우선)"]
+      },
+      "폐암": {
+        "1기(초기)": ["개흉술", "흉강경수술 (VATS)", "로봇수술"],
+        "2기(중기)": ["개흉술", "흉강경수술 (VATS)", "로봇수술"],
+        "3기(진행)": ["개흉술 (복합치료 후)", "수술 불가 (항암방사선 우선)"],
+        "4기(말기)": ["수술 불가 (전신치료 우선)"]
+      },
+      "위암": {
+        "1기(초기)": ["내시경절제술 (조기암)", "개복수술", "복강경수술", "로봇수술"],
+        "2기(중기)": ["개복수술", "복강경수술", "로봇수술"],
+        "3기(진행)": ["개복수술", "복강경수술", "로봇수술"],
+        "4기(말기)": ["완화적 수술", "수술 불가 (항암치료 우선)"]
+      },
+      "간암": {
+        "1기(초기)": ["개복간절제술", "복강경간절제술", "로봇간절제술", "고주파열치료 (RFA)", "간이식"],
+        "2기(중기)": ["개복간절제술", "복강경간절제술", "로봇간절제술", "고주파열치료 (RFA)", "간이식"],
+        "3기(진행)": ["간동맥화학색전술 (TACE)", "수술 불가 (표적치료 우선)"],
+        "4기(말기)": ["수술 불가 (전신치료 우선)"]
+      },
+      "췌장암": {
+        "1기(초기)": ["개복수술", "복강경수술", "로봇수술"],
+        "2기(중기)": ["개복수술", "복강경수술", "로봇수술"],
+        "3기(진행)": ["수술 불가 (선행항암 후 재평가)"],
+        "4기(말기)": ["수술 불가 (항암치료 우선)"]
+      },
+      "전립선암": {
+        "1기(초기)": ["개복전립선절제술", "복강경전립선절제술", "로봇전립선절제술"],
+        "2기(중기)": ["개복전립선절제술", "복강경전립선절제술", "로봇전립선절제술"],
+        "3기(진행)": ["개복전립선절제술", "복강경전립선절제술", "로봇전립선절제술"],
+        "4기(말기)": ["수술 불가 (호르몬치료 우선)"]
+      },
+      "자궁경부암": {
+        "1기(초기)": ["원추절제술", "근치적자궁절제술", "복강경근치적자궁절제술", "로봇근치적자궁절제술"],
+        "2기(중기)": ["근치적자궁절제술", "복강경근치적자궁절제술", "로봇근치적자궁절제술", "수술 불가 (항암방사선치료 우선)"],
+        "3기(진행)": ["수술 불가 (항암방사선치료 우선)"],
+        "4기(말기)": ["수술 불가 (항암방사선치료 우선)"]
+      },
+      "난소암": {
+        "1기(초기)": ["개복수술", "복강경수술 (선별적)"],
+        "2기(중기)": ["개복수술", "복강경수술 (선별적)"],
+        "3기(진행)": ["개복수술", "복강경수술 (선별적)"],
+        "4기(말기)": ["종양감축술 (선별적)", "수술 불가 (항암치료 우선)"]
+      }
+    };
+
+    return surgeryMap[cancerType]?.[stage] || [];
+  };
+
+  const currentSurgeryOptions = getSurgeryOptions(formData.cancerType, formData.stage);
+
   const handleRandomGenerate = () => {
     const randomName = ["김미영", "박순례", "최영수", "이정희", "홍길동"][Math.floor(Math.random() * 5)];
     const randomAge = Math.floor(Math.random() * 60) + 30;
@@ -84,7 +164,7 @@ const Index = () => {
       diagnosisDate: new Date(Date.now() - Math.floor(Math.random() * 365 * 2) * 24 * 60 * 60 * 1000),
       cancerType: randomCancerType,
       stage: randomStage,
-      surgeryMethod: ["개복수술", "복강경수술", "로봇수술", "내시경수술"][Math.floor(Math.random() * 4)]
+      surgeryMethod: currentSurgeryOptions.length > 0 ? currentSurgeryOptions[Math.floor(Math.random() * currentSurgeryOptions.length)] : ""
     });
   };
 
@@ -301,15 +381,24 @@ const Index = () => {
 
               <div className="space-y-2">
                 <Label>수술방법</Label>
-                <Select value={formData.surgeryMethod} onValueChange={(value) => setFormData({...formData, surgeryMethod: value})}>
+                <Select 
+                  value={formData.surgeryMethod} 
+                  onValueChange={(value) => setFormData({...formData, surgeryMethod: value})}
+                  disabled={!formData.cancerType || !formData.stage}
+                >
                   <SelectTrigger>
-                    <SelectValue placeholder="수술방법을 선택하세요 (선택사항)" />
+                    <SelectValue placeholder={
+                      !formData.cancerType || !formData.stage 
+                        ? "암종과 병기를 먼저 선택하세요" 
+                        : currentSurgeryOptions.length === 0
+                        ? "해당 조건에 수술옵션이 없습니다"
+                        : "수술방법을 선택하세요 (선택사항)"
+                    } />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="개복수술">개복수술</SelectItem>
-                    <SelectItem value="복강경수술">복강경수술</SelectItem>
-                    <SelectItem value="로봇수술">로봇수술</SelectItem>
-                    <SelectItem value="내시경수술">내시경수술</SelectItem>
+                    {currentSurgeryOptions.map((method) => (
+                      <SelectItem key={method} value={method}>{method}</SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
               </div>
