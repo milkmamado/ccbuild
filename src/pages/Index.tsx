@@ -144,6 +144,18 @@ const Index = () => {
           <p className="text-sm text-muted-foreground mt-2">
             의학적으로 정확한 가상 환자 캐릭터를 생성합니다
           </p>
+          
+          {/* 면책 조항 */}
+          <div className="bg-amber-50 border border-amber-200 rounded-lg p-4 mt-4 text-sm">
+            <div className="flex items-start gap-2">
+              <span className="text-amber-600 font-semibold">⚠️ 중요 안내</span>
+            </div>
+            <div className="text-amber-800 mt-1">
+              <p>• 이 도구는 <strong>교육 및 마케팅 목적</strong>의 가상 캐릭터 생성용입니다</p>
+              <p>• 생성된 내용은 <strong>실제 의학적 조언이 아니며</strong>, 개인의 치료 계획은 반드시 의료진과 상담하시기 바랍니다</p>
+              <p>• 실제 환자 치료에 사용하지 마세요</p>
+            </div>
+          </div>
         </div>
 
         <Card>
@@ -373,6 +385,10 @@ const Index = () => {
                 </Button>
               </div>
               <div className="bg-muted/50 rounded-lg p-4">
+                <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 mb-4 text-sm text-blue-800">
+                  <strong>📋 면책 조항:</strong> 이 내용은 가상 시나리오이며 실제 의학적 조언이 아닙니다. 
+                  개인의 치료 계획은 반드시 의료진과 상담하시기 바랍니다.
+                </div>
                 <pre className="whitespace-pre-wrap text-sm leading-relaxed">
                   {generatedContent}
                 </pre>
