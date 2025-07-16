@@ -5,7 +5,8 @@ import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
-import { Check, X, User, LogOut } from "lucide-react";
+import { Check, X, User, LogOut, ArrowLeft } from "lucide-react";
+import { Link } from "react-router-dom";
 
 interface Profile {
   id: string;
@@ -116,10 +117,18 @@ const Admin = () => {
               <p className="text-muted-foreground">사용자 승인 관리</p>
             </div>
           </div>
-          <Button variant="outline" onClick={handleLogout}>
-            <LogOut className="mr-2 h-4 w-4" />
-            로그아웃
-          </Button>
+          <div className="flex items-center gap-2">
+            <Link to="/">
+              <Button variant="outline">
+                <ArrowLeft className="mr-2 h-4 w-4" />
+                캐릭터 생성
+              </Button>
+            </Link>
+            <Button variant="outline" onClick={handleLogout}>
+              <LogOut className="mr-2 h-4 w-4" />
+              로그아웃
+            </Button>
+          </div>
         </div>
 
         <Card>

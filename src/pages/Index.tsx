@@ -21,7 +21,8 @@ const Index = () => {
     hospital: "",
     diagnosisDate: undefined as Date | undefined,
     cancerType: "",
-    stage: ""
+    stage: "",
+    surgeryMethod: ""
   });
 
   const [generatedContent, setGeneratedContent] = useState("");
@@ -82,7 +83,8 @@ const Index = () => {
       hospital: hospitals[Math.floor(Math.random() * hospitals.length)],
       diagnosisDate: new Date(Date.now() - Math.floor(Math.random() * 365 * 2) * 24 * 60 * 60 * 1000),
       cancerType: randomCancerType,
-      stage: randomStage
+      stage: randomStage,
+      surgeryMethod: ["개복수술", "복강경수술", "로봇수술", "내시경수술"][Math.floor(Math.random() * 4)]
     });
   };
 
@@ -142,7 +144,8 @@ const Index = () => {
       hospital: "",
       diagnosisDate: undefined,
       cancerType: "",
-      stage: ""
+      stage: "",
+      surgeryMethod: ""
     });
   };
 
@@ -180,7 +183,7 @@ const Index = () => {
           <CardHeader>
             <CardTitle>캐릭터 정보 입력</CardTitle>
             <CardDescription>
-              환자 기본 정보를 입력하면 AI가 병기별 표준치료를 자동으로 결정합니다
+              환자 기본 정보를 입력하면 AI가 병기별 표준치료를 자동으로 결정합니다 (수술방법만 선택 가능)
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-6">
@@ -281,18 +284,35 @@ const Index = () => {
               </div>
             </div>
 
-            <div className="space-y-2">
-              <Label>병기 *</Label>
-              <Select value={formData.stage} onValueChange={(value) => setFormData({...formData, stage: value})}>
-                <SelectTrigger>
-                  <SelectValue placeholder="병기를 선택하세요" />
-                </SelectTrigger>
-                <SelectContent>
-                  {stages.map((stage) => (
-                    <SelectItem key={stage} value={stage}>{stage}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>병기 *</Label>
+                <Select value={formData.stage} onValueChange={(value) => setFormData({...formData, stage: value})}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="병기를 선택하세요" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {stages.map((stage) => (
+                      <SelectItem key={stage} value={stage}>{stage}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-2">
+                <Label>수술방법</Label>
+                <Select value={formData.surgeryMethod} onValueChange={(value) => setFormData({...formData, surgeryMethod: value})}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="수술방법을 선택하세요 (선택사항)" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="개복수술">개복수술</SelectItem>
+                    <SelectItem value="복강경수술">복강경수술</SelectItem>
+                    <SelectItem value="로봇수술">로봇수술</SelectItem>
+                    <SelectItem value="내시경수술">내시경수술</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
 
             {/* 안내 메시지 */}
