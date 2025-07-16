@@ -252,7 +252,7 @@ const Index = () => {
           <div className="flex items-center gap-2">
             <User className="h-6 w-6 text-primary" />
             <div>
-              <h1 className="text-xl font-semibold">MZ비밀의방</h1>
+              <h1 className="text-xl font-semibold">아프니까 생성이다!</h1>
               <p className="text-sm text-muted-foreground">
                 환영합니다, {userProfile?.email}
               </p>
