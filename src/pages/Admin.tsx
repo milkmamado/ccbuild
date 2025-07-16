@@ -161,15 +161,39 @@ const Admin = () => {
 
   const updateUserLimits = async (userId: string, dailyLimit: number, monthlyLimit: number) => {
     try {
-      const { error } = await supabase
+      // 먼저 기존 레코드가 있는지 확인
+      const { data: existingLimit } = await supabase
         .from('user_limits')
-        .upsert({ 
-          user_id: userId, 
-          daily_limit: dailyLimit, 
-          monthly_limit: monthlyLimit 
-        });
+        .select('id')
+        .eq('user_id', userId)
+        .maybeSingle();
 
-      if (error) throw error;
+      let error;
+      
+      if (existingLimit) {
+        // 기존 레코드가 있으면 업데이트
+        ({ error } = await supabase
+          .from('user_limits')
+          .update({ 
+            daily_limit: dailyLimit, 
+            monthly_limit: monthlyLimit 
+          })
+          .eq('user_id', userId));
+      } else {
+        // 기존 레코드가 없으면 삽입
+        ({ error } = await supabase
+          .from('user_limits')
+          .insert({ 
+            user_id: userId, 
+            daily_limit: dailyLimit, 
+            monthly_limit: monthlyLimit 
+          }));
+      }
+
+      if (error) {
+        console.error('제한 업데이트 오류:', error);
+        throw error;
+      }
 
       toast({
         title: "성공",
@@ -179,6 +203,7 @@ const Admin = () => {
       fetchUserStats();
       setEditingLimits({});
     } catch (error: any) {
+      console.error('updateUserLimits 오류:', error);
       toast({
         title: "오류",
         description: "제한 업데이트에 실패했습니다.",
