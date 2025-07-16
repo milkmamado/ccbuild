@@ -43,15 +43,87 @@ const Index = () => {
     "서울성모병원", "고려대병원"
   ];
 
-  const surgeryOptions = ["표준", "광범위", "없음"];
-  const chemotherapyOptions = ["짧게(4회)", "표준(6회)", "길게(8회)", "없음"];
-  const radiationOptions = ["있음", "없음"];
-  const additionalTreatmentOptions = ["호르몬치료", "표적치료", "면역치료", "없음"];
+  // 암종별 치료 옵션 정의
+  const treatmentOptions = {
+    "유방암": {
+      surgery: ["유방보존술", "유방전절제술", "없음"],
+      chemotherapy: ["AC-T(8회)", "TC(4회)", "AC(4회)", "없음"],
+      radiation: ["있음", "없음"],
+      additional: ["호르몬치료", "표적치료", "없음"]
+    },
+    "갑상선암": {
+      surgery: ["갑상선전절제술", "엽절제술", "없음"],
+      chemotherapy: ["없음"],
+      radiation: ["방사성요오드", "없음"],
+      additional: ["TSH억제요법", "없음"]
+    },
+    "대장암": {
+      surgery: ["근치적절제술", "복강경수술", "없음"],
+      chemotherapy: ["FOLFOX(12회)", "CAPOX(8회)", "5-FU/LV", "없음"],
+      radiation: ["있음", "없음"],
+      additional: ["표적치료", "없음"]
+    },
+    "폐암": {
+      surgery: ["폐엽절제술", "쐐기절제술", "없음"],
+      chemotherapy: ["카보플라틴+파클리탁셀", "시스플라틴+페메트렉세드", "없음"],
+      radiation: ["있음", "없음"],
+      additional: ["표적치료", "면역항암제", "없음"]
+    },
+    "위암": {
+      surgery: ["위전절제술", "위부분절제술", "없음"],
+      chemotherapy: ["S-1보조요법", "CAPOX", "없음"],
+      radiation: ["있음", "없음"],
+      additional: ["표적치료", "없음"]
+    },
+    "간암": {
+      surgery: ["부분절제술", "구역절제술", "간이식", "없음"],
+      chemotherapy: ["TACE", "고주파열치료", "없음"],
+      radiation: ["방사선치료", "없음"],
+      additional: ["표적치료(소라페닙)", "표적치료(렌바티닙)", "면역항암제", "없음"]
+    },
+    "췌장암": {
+      surgery: ["췌십이지장절제술", "원위부췌절제술", "없음"],
+      chemotherapy: ["젬시타빈+납-파클리탁셀", "FOLFIRINOX", "젬시타빈", "없음"],
+      radiation: ["있음", "없음"],
+      additional: ["없음"]
+    },
+    "전립선암": {
+      surgery: ["근치적전립선절제술", "없음"],
+      chemotherapy: ["없음"],
+      radiation: ["외부방사선", "근접방사선", "없음"],
+      additional: ["호르몬치료", "없음"]
+    },
+    "자궁경부암": {
+      surgery: ["근치적자궁절제술", "자궁절제술", "없음"],
+      chemotherapy: ["시스플라틴", "카보플라틴+파클리탁셀", "없음"],
+      radiation: ["외부방사선", "근접방사선", "없음"],
+      additional: ["없음"]
+    },
+    "난소암": {
+      surgery: ["종양감축술", "난소절제술", "없음"],
+      chemotherapy: ["카보플라틴+파클리탁셀", "없음"],
+      radiation: ["없음"],
+      additional: ["유지치료", "없음"]
+    }
+  };
+
+  // 선택된 암종에 따른 치료 옵션 가져오기
+  const getCurrentTreatmentOptions = () => {
+    if (!formData.cancerType) return null;
+    return treatmentOptions[formData.cancerType as keyof typeof treatmentOptions];
+  };
+
+  const currentOptions = getCurrentTreatmentOptions();
 
   const handleRandomGenerate = () => {
     const randomName = ["김미영", "박순례", "최영수", "이정희", "홍길동"][Math.floor(Math.random() * 5)];
     const randomAge = Math.floor(Math.random() * 60) + 30;
     const randomGender = Math.random() > 0.5 ? "여" : "남";
+    const randomCancerType = cancerTypes[Math.floor(Math.random() * cancerTypes.length)];
+    const randomStage = stages[Math.floor(Math.random() * stages.length)];
+    
+    // 선택된 암종에 맞는 치료 옵션 사용
+    const options = treatmentOptions[randomCancerType as keyof typeof treatmentOptions];
     
     setFormData({
       name: randomName,
@@ -59,12 +131,12 @@ const Index = () => {
       gender: randomGender,
       hospital: hospitals[Math.floor(Math.random() * hospitals.length)],
       diagnosisDate: new Date(Date.now() - Math.floor(Math.random() * 365 * 2) * 24 * 60 * 60 * 1000),
-      cancerType: cancerTypes[Math.floor(Math.random() * cancerTypes.length)],
-      stage: stages[Math.floor(Math.random() * stages.length)],
-      surgery: surgeryOptions[Math.floor(Math.random() * surgeryOptions.length)],
-      chemotherapy: chemotherapyOptions[Math.floor(Math.random() * chemotherapyOptions.length)],
-      radiation: radiationOptions[Math.floor(Math.random() * radiationOptions.length)],
-      additionalTreatment: additionalTreatmentOptions[Math.floor(Math.random() * additionalTreatmentOptions.length)]
+      cancerType: randomCancerType,
+      stage: randomStage,
+      surgery: options.surgery[Math.floor(Math.random() * options.surgery.length)],
+      chemotherapy: options.chemotherapy[Math.floor(Math.random() * options.chemotherapy.length)],
+      radiation: options.radiation[Math.floor(Math.random() * options.radiation.length)],
+      additionalTreatment: options.additional[Math.floor(Math.random() * options.additional.length)]
     });
   };
 
@@ -272,12 +344,16 @@ const Index = () => {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label>수술</Label>
-                  <Select value={formData.surgery} onValueChange={(value) => setFormData({...formData, surgery: value})}>
+                  <Select 
+                    value={formData.surgery} 
+                    onValueChange={(value) => setFormData({...formData, surgery: value})}
+                    disabled={!currentOptions}
+                  >
                     <SelectTrigger>
-                      <SelectValue placeholder="수술 옵션 선택" />
+                      <SelectValue placeholder={currentOptions ? "수술 옵션 선택" : "먼저 암종을 선택하세요"} />
                     </SelectTrigger>
                     <SelectContent>
-                      {surgeryOptions.map((option) => (
+                      {currentOptions?.surgery.map((option) => (
                         <SelectItem key={option} value={option}>{option}</SelectItem>
                       ))}
                     </SelectContent>
@@ -286,12 +362,16 @@ const Index = () => {
 
                 <div className="space-y-2">
                   <Label>항암치료</Label>
-                  <Select value={formData.chemotherapy} onValueChange={(value) => setFormData({...formData, chemotherapy: value})}>
+                  <Select 
+                    value={formData.chemotherapy} 
+                    onValueChange={(value) => setFormData({...formData, chemotherapy: value})}
+                    disabled={!currentOptions}
+                  >
                     <SelectTrigger>
-                      <SelectValue placeholder="항암치료 옵션 선택" />
+                      <SelectValue placeholder={currentOptions ? "항암치료 옵션 선택" : "먼저 암종을 선택하세요"} />
                     </SelectTrigger>
                     <SelectContent>
-                      {chemotherapyOptions.map((option) => (
+                      {currentOptions?.chemotherapy.map((option) => (
                         <SelectItem key={option} value={option}>{option}</SelectItem>
                       ))}
                     </SelectContent>
@@ -302,12 +382,16 @@ const Index = () => {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
                 <div className="space-y-2">
                   <Label>방사선치료</Label>
-                  <Select value={formData.radiation} onValueChange={(value) => setFormData({...formData, radiation: value})}>
+                  <Select 
+                    value={formData.radiation} 
+                    onValueChange={(value) => setFormData({...formData, radiation: value})}
+                    disabled={!currentOptions}
+                  >
                     <SelectTrigger>
-                      <SelectValue placeholder="방사선치료 옵션 선택" />
+                      <SelectValue placeholder={currentOptions ? "방사선치료 옵션 선택" : "먼저 암종을 선택하세요"} />
                     </SelectTrigger>
                     <SelectContent>
-                      {radiationOptions.map((option) => (
+                      {currentOptions?.radiation.map((option) => (
                         <SelectItem key={option} value={option}>{option}</SelectItem>
                       ))}
                     </SelectContent>
@@ -316,12 +400,16 @@ const Index = () => {
 
                 <div className="space-y-2">
                   <Label>추가치료</Label>
-                  <Select value={formData.additionalTreatment} onValueChange={(value) => setFormData({...formData, additionalTreatment: value})}>
+                  <Select 
+                    value={formData.additionalTreatment} 
+                    onValueChange={(value) => setFormData({...formData, additionalTreatment: value})}
+                    disabled={!currentOptions}
+                  >
                     <SelectTrigger>
-                      <SelectValue placeholder="추가치료 옵션 선택" />
+                      <SelectValue placeholder={currentOptions ? "추가치료 옵션 선택" : "먼저 암종을 선택하세요"} />
                     </SelectTrigger>
                     <SelectContent>
-                      {additionalTreatmentOptions.map((option) => (
+                      {currentOptions?.additional.map((option) => (
                         <SelectItem key={option} value={option}>{option}</SelectItem>
                       ))}
                     </SelectContent>
