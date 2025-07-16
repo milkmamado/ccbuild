@@ -5,8 +5,9 @@ import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
-import { Check, X, User, LogOut, ArrowLeft } from "lucide-react";
+import { Check, X, User, LogOut, ArrowLeft, Trash2 } from "lucide-react";
 import { Link } from "react-router-dom";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 
 interface Profile {
   id: string;
@@ -70,6 +71,32 @@ const Admin = () => {
       toast({
         title: "오류",
         description: "상태 업데이트에 실패했습니다.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const deleteUser = async (userId: string, userEmail: string) => {
+    try {
+      const { error } = await supabase
+        .from('profiles')
+        .delete()
+        .eq('id', userId);
+
+      if (error) {
+        throw error;
+      }
+
+      toast({
+        title: "삭제 완료",
+        description: `${userEmail} 사용자가 삭제되었습니다.`,
+      });
+
+      fetchProfiles();
+    } catch (error: any) {
+      toast({
+        title: "오류",
+        description: "사용자 삭제에 실패했습니다.",
         variant: "destructive",
       });
     }
@@ -161,24 +188,55 @@ const Admin = () => {
                       {new Date(profile.created_at).toLocaleDateString('ko-KR')}
                     </TableCell>
                     <TableCell>
-                      {profile.approval_status === 'pending' && (
-                        <div className="flex gap-2">
-                          <Button
-                            size="sm"
-                            variant="default"
-                            onClick={() => updateApprovalStatus(profile.id, 'approved')}
-                          >
-                            <Check className="h-4 w-4" />
-                          </Button>
-                          <Button
-                            size="sm"
-                            variant="destructive"
-                            onClick={() => updateApprovalStatus(profile.id, 'rejected')}
-                          >
-                            <X className="h-4 w-4" />
-                          </Button>
-                        </div>
-                      )}
+                      <div className="flex gap-2">
+                        {profile.approval_status === 'pending' && (
+                          <>
+                            <Button
+                              size="sm"
+                              variant="default"
+                              onClick={() => updateApprovalStatus(profile.id, 'approved')}
+                            >
+                              <Check className="h-4 w-4" />
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="destructive"
+                              onClick={() => updateApprovalStatus(profile.id, 'rejected')}
+                            >
+                              <X className="h-4 w-4" />
+                            </Button>
+                          </>
+                        )}
+                        <AlertDialog>
+                          <AlertDialogTrigger asChild>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="text-red-600 hover:text-red-700"
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </AlertDialogTrigger>
+                          <AlertDialogContent>
+                            <AlertDialogHeader>
+                              <AlertDialogTitle>사용자 삭제</AlertDialogTitle>
+                              <AlertDialogDescription>
+                                정말로 "{profile.full_name} ({profile.email})" 사용자를 삭제하시겠습니까?
+                                이 작업은 되돌릴 수 없습니다.
+                              </AlertDialogDescription>
+                            </AlertDialogHeader>
+                            <AlertDialogFooter>
+                              <AlertDialogCancel>취소</AlertDialogCancel>
+                              <AlertDialogAction 
+                                className="bg-red-600 hover:bg-red-700"
+                                onClick={() => deleteUser(profile.id, profile.email)}
+                              >
+                                삭제
+                              </AlertDialogAction>
+                            </AlertDialogFooter>
+                          </AlertDialogContent>
+                        </AlertDialog>
+                      </div>
                     </TableCell>
                   </TableRow>
                 ))}

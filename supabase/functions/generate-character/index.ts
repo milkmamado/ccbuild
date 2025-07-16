@@ -28,6 +28,7 @@ const prompt = `
 - 진단일자: ${formData.diagnosisDate}
 - 암종: ${formData.cancerType}
 - 병기: ${formData.stage}
+${formData.surgeryMethod ? `- 수술방법: ${formData.surgeryMethod}` : ''}
 
 ## AI 자동 치료 결정 원칙
 **중요: 입력된 암종과 병기에 따라 AI가 의학적 가이드라인에 맞는 표준치료만 자동 선택해야 함**
@@ -127,6 +128,7 @@ const prompt = `
 ### 3. 표준 치료계획 (가이드라인 완벽 준수)
 - 해당 암종의 표준 다학제팀 구성
 - **반드시** 병기별 1차 표준치료만 선택
+- ${formData.surgeryMethod ? `선택된 수술방법(${formData.surgeryMethod})을 치료계획에 반영` : '해당 암종에 적합한 수술방법 선택'}
 - 정확한 항암제 프로토콜명과 용량 (암종별 표준 레지멘)
 - 치료 순서는 절대 임의변경 금지
 - **부적절한 치료 조합 절대 금지**
