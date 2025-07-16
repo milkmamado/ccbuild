@@ -14,6 +14,35 @@ export type Database = {
   }
   public: {
     Tables: {
+      character_generations: {
+        Row: {
+          character_data: Json
+          created_at: string
+          id: string
+          user_id: string
+        }
+        Insert: {
+          character_data: Json
+          created_at?: string
+          id?: string
+          user_id: string
+        }
+        Update: {
+          character_data?: Json
+          created_at?: string
+          id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "character_generations_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       profiles: {
         Row: {
           approval_status: Database["public"]["Enums"]["approval_status"]
@@ -43,6 +72,41 @@ export type Database = {
           updated_at?: string
         }
         Relationships: []
+      }
+      user_limits: {
+        Row: {
+          created_at: string
+          daily_limit: number
+          id: string
+          monthly_limit: number
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          daily_limit?: number
+          id?: string
+          monthly_limit?: number
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          daily_limit?: number
+          id?: string
+          monthly_limit?: number
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_limits_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: true
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
       }
     }
     Views: {

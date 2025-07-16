@@ -1,7 +1,10 @@
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 
 const claudeApiKey = Deno.env.get('CLAUDE_API_KEY');
+const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
+const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -15,6 +18,81 @@ serve(async (req) => {
 
   try {
     const { formData } = await req.json();
+    
+    // 인증 확인
+    const authHeader = req.headers.get('Authorization')!;
+    const token = authHeader.replace('Bearer ', '');
+    
+    const supabase = createClient(supabaseUrl, supabaseServiceKey);
+    
+    // 토큰으로 사용자 정보 가져오기
+    const { data: { user }, error: authError } = await supabase.auth.getUser(token);
+    
+    if (authError || !user) {
+      return new Response(JSON.stringify({ 
+        success: false, 
+        error: '인증이 필요합니다.' 
+      }), {
+        status: 401,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
+    // 사용자 제한 확인
+    const { data: userLimit } = await supabase
+      .from('user_limits')
+      .select('daily_limit, monthly_limit')
+      .eq('user_id', user.id)
+      .single();
+
+    if (!userLimit) {
+      return new Response(JSON.stringify({ 
+        success: false, 
+        error: '사용자 제한 설정을 찾을 수 없습니다.' 
+      }), {
+        status: 400,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
+    // 일일 사용량 확인
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    
+    const { count: dailyCount } = await supabase
+      .from('character_generations')
+      .select('*', { count: 'exact', head: true })
+      .eq('user_id', user.id)
+      .gte('created_at', today.toISOString());
+
+    if ((dailyCount || 0) >= userLimit.daily_limit) {
+      return new Response(JSON.stringify({ 
+        success: false, 
+        error: `일일 생성 한도(${userLimit.daily_limit}회)를 초과했습니다.` 
+      }), {
+        status: 429,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
+    // 월간 사용량 확인
+    const monthStart = new Date(today.getFullYear(), today.getMonth(), 1);
+    
+    const { count: monthlyCount } = await supabase
+      .from('character_generations')
+      .select('*', { count: 'exact', head: true })
+      .eq('user_id', user.id)
+      .gte('created_at', monthStart.toISOString());
+
+    if ((monthlyCount || 0) >= userLimit.monthly_limit) {
+      return new Response(JSON.stringify({ 
+        success: false, 
+        error: `월간 생성 한도(${userLimit.monthly_limit}회)를 초과했습니다.` 
+      }), {
+        status: 429,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
 
 const prompt = `
 
@@ -209,6 +287,14 @@ ${formData.surgeryMethod ? `- 수술방법: ${formData.surgeryMethod}` : ''}
 
     const data = await response.json();
     const generatedContent = data.content[0].text;
+
+    // 생성 기록 저장
+    await supabase
+      .from('character_generations')
+      .insert({
+        user_id: user.id,
+        character_data: formData
+      });
 
     return new Response(JSON.stringify({ 
       success: true, 

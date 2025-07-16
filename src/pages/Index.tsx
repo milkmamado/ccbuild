@@ -180,8 +180,22 @@ const Index = () => {
 
     setIsGenerating(true);
     try {
+      const { data: { session } } = await supabase.auth.getSession();
+      
+      if (!session) {
+        toast({
+          title: "로그인 필요",
+          description: "로그인 후 이용해주세요.",
+          variant: "destructive",
+        });
+        return;
+      }
+
       const { data, error } = await supabase.functions.invoke('generate-character', {
-        body: { formData }
+        body: { formData },
+        headers: {
+          Authorization: `Bearer ${session.access_token}`
+        }
       });
 
       if (error) throw error;
@@ -195,11 +209,12 @@ const Index = () => {
       } else {
         throw new Error(data.error);
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('캐릭터 생성 오류:', error);
+      const errorMessage = error.message || "캐릭터 생성 중 오류가 발생했습니다.";
       toast({
         title: "생성 실패",
-        description: "캐릭터 생성 중 오류가 발생했습니다.",
+        description: errorMessage,
         variant: "destructive",
       });
     } finally {
