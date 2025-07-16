@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -6,11 +6,12 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { CalendarIcon, Dice6, User, Copy, RotateCcw, Loader2 } from "lucide-react";
+import { CalendarIcon, Dice6, User, Copy, RotateCcw, Loader2, LogOut, Settings } from "lucide-react";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
+import { Link } from "react-router-dom";
 
 const Index = () => {
   const [formData, setFormData] = useState({
@@ -29,7 +30,35 @@ const Index = () => {
 
   const [generatedContent, setGeneratedContent] = useState("");
   const [isGenerating, setIsGenerating] = useState(false);
+  const [userProfile, setUserProfile] = useState<{ email: string; role: string } | null>(null);
   const { toast } = useToast();
+
+  useEffect(() => {
+    fetchUserProfile();
+  }, []);
+
+  const fetchUserProfile = async () => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('email, role')
+          .eq('id', user.id)
+          .single();
+        
+        if (profile) {
+          setUserProfile(profile);
+        }
+      }
+    } catch (error) {
+      console.error('프로필 조회 오류:', error);
+    }
+  };
+
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
+  };
 
   const cancerTypes = [
     "유방암", "갑상선암", "대장암", "폐암", "위암", 
@@ -207,6 +236,32 @@ const Index = () => {
   return (
     <div className="min-h-screen bg-background p-4">
       <div className="max-w-4xl mx-auto">
+        {/* 상단 헤더 */}
+        <div className="flex items-center justify-between mb-6">
+          <div className="flex items-center gap-2">
+            <User className="h-6 w-6 text-primary" />
+            <div>
+              <h1 className="text-xl font-semibold">MZ비밀의방</h1>
+              <p className="text-sm text-muted-foreground">
+                환영합니다, {userProfile?.email}
+              </p>
+            </div>
+          </div>
+          <div className="flex items-center gap-2">
+            {userProfile?.role === 'admin' && (
+              <Link to="/admin">
+                <Button variant="outline" size="sm">
+                  <Settings className="mr-2 h-4 w-4" />
+                  관리자 패널
+                </Button>
+              </Link>
+            )}
+            <Button variant="outline" size="sm" onClick={handleLogout}>
+              <LogOut className="mr-2 h-4 w-4" />
+              로그아웃
+            </Button>
+          </div>
+        </div>
 
         <Card>
           <CardHeader>
