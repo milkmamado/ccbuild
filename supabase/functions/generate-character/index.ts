@@ -288,12 +288,17 @@ ${formData.surgeryMethod ? `- 수술방법: ${formData.surgeryMethod}` : ''}
     const data = await response.json();
     const generatedContent = data.content[0].text;
 
-    // 생성 기록 저장
+    // 토큰 사용량 계산 (입력 + 출력 토큰)
+    const tokenUsage = (data.usage?.input_tokens || 0) + (data.usage?.output_tokens || 0);
+
+    // 생성 기록 저장 (토큰 사용량 포함)
     await supabase
       .from('character_generations')
       .insert({
         user_id: user.id,
-        character_data: formData
+        character_data: formData,
+        token_usage: tokenUsage,
+        success: true
       });
 
     return new Response(JSON.stringify({ 
@@ -305,6 +310,20 @@ ${formData.surgeryMethod ? `- 수술방법: ${formData.surgeryMethod}` : ''}
     });
   } catch (error) {
     console.error('Error in generate-character function:', error);
+    
+    // 실패한 요청도 기록 (토큰 사용량 0으로)
+    if (user) {
+      await supabase
+        .from('character_generations')
+        .insert({
+          user_id: user.id,
+          character_data: {},
+          token_usage: 0,
+          success: false,
+          error_message: error.message
+        });
+    }
+
     return new Response(JSON.stringify({ 
       success: false, 
       error: error.message 

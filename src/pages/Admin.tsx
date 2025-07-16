@@ -1,31 +1,36 @@
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
-import { Check, X, User, LogOut, ArrowLeft, Trash2, Settings, BarChart3, Save } from "lucide-react";
-import { Link } from "react-router-dom";
+import { useNavigate, Link } from "react-router-dom";
+import { 
+  User, 
+  LogOut, 
+  Check, 
+  X, 
+  Settings, 
+  Save, 
+  Trash2, 
+  ArrowLeft,
+  Users,
+  Activity,
+  TrendingUp,
+  AlertCircle
+} from "lucide-react";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 
 interface Profile {
   id: string;
   email: string;
   full_name: string;
-  role: 'admin' | 'user';
-  approval_status: 'pending' | 'approved' | 'rejected';
+  role: string;
+  approval_status: string;
   created_at: string;
-}
-
-interface UserLimit {
-  id: string;
-  user_id: string;
-  daily_limit: number;
-  monthly_limit: number;
 }
 
 interface UserStats {
@@ -36,19 +41,64 @@ interface UserStats {
   monthly_count: number;
   daily_limit: number;
   monthly_limit: number;
+  total_tokens: number;
+}
+
+interface EditingLimits {
+  [key: string]: {
+    id: string;
+    user_id: string;
+    daily_limit: number;
+    monthly_limit: number;
+  };
+}
+
+interface DashboardStats {
+  total_users: number;
+  total_generations: number;
+  total_tokens: number;
+  success_rate: number;
 }
 
 const Admin = () => {
+  const [loading, setLoading] = useState(true);
   const [profiles, setProfiles] = useState<Profile[]>([]);
   const [userStats, setUserStats] = useState<UserStats[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [editingLimits, setEditingLimits] = useState<{[key: string]: UserLimit}>({});
+  const [dashboardStats, setDashboardStats] = useState<DashboardStats | null>(null);
+  const [editingLimits, setEditingLimits] = useState<EditingLimits>({});
   const { toast } = useToast();
+  const navigate = useNavigate();
 
   useEffect(() => {
-    fetchProfiles();
-    fetchUserStats();
-  }, []);
+    const checkAdmin = async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      
+      if (!session) {
+        navigate("/auth");
+        return;
+      }
+
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('role, approval_status')
+        .eq('id', session.user.id)
+        .single();
+
+      if (!profile || profile.role !== 'admin' || profile.approval_status !== 'approved') {
+        navigate("/");
+        return;
+      }
+
+      await Promise.all([
+        fetchProfiles(),
+        fetchUserStats(), 
+        fetchDashboardStats()
+      ]);
+      setLoading(false);
+    };
+
+    checkAdmin();
+  }, [navigate]);
 
   const fetchProfiles = async () => {
     try {
@@ -57,10 +107,7 @@ const Admin = () => {
         .select('*')
         .order('created_at', { ascending: false });
 
-      if (error) {
-        throw error;
-      }
-
+      if (error) throw error;
       setProfiles(data || []);
     } catch (error: any) {
       toast({
@@ -68,15 +115,13 @@ const Admin = () => {
         description: "사용자 목록을 불러오는데 실패했습니다.",
         variant: "destructive",
       });
-    } finally {
-      setLoading(false);
     }
   };
 
   const fetchUserStats = async () => {
     try {
-      // 사용자별 일일/월간 생성 횟수와 제한 조회
-      const { data, error } = await supabase
+      // 사용자별 통계 조회
+      const { data: statsData, error: statsError } = await supabase
         .from('profiles')
         .select(`
           id,
@@ -84,51 +129,95 @@ const Admin = () => {
           full_name,
           user_limits!inner(daily_limit, monthly_limit)
         `)
-        .eq('role', 'user')
         .eq('approval_status', 'approved');
 
-      if (error) throw error;
+      if (statsError) throw statsError;
 
-      const stats: UserStats[] = [];
-      
-      for (const profile of data || []) {
-        // 일일 생성 횟수
-        const today = new Date();
-        today.setHours(0, 0, 0, 0);
-        
-        const { count: dailyCount } = await supabase
-          .from('character_generations')
-          .select('*', { count: 'exact', head: true })
-          .eq('user_id', profile.id)
-          .gte('created_at', today.toISOString());
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      const monthStart = new Date(today.getFullYear(), today.getMonth(), 1);
 
-        // 월간 생성 횟수  
-        const monthStart = new Date(today.getFullYear(), today.getMonth(), 1);
-        
-        const { count: monthlyCount } = await supabase
-          .from('character_generations')
-          .select('*', { count: 'exact', head: true })
-          .eq('user_id', profile.id)
-          .gte('created_at', monthStart.toISOString());
+      const userStatsWithCounts = await Promise.all(
+        statsData.map(async (user: any) => {
+          // 일일 사용량
+          const { count: dailyCount } = await supabase
+            .from('character_generations')
+            .select('*', { count: 'exact', head: true })
+            .eq('user_id', user.id)
+            .eq('success', true)
+            .gte('created_at', today.toISOString());
 
-        stats.push({
-          user_id: profile.id,
-          email: profile.email,
-          full_name: profile.full_name,
-          daily_count: dailyCount || 0,
-          monthly_count: monthlyCount || 0,
-          daily_limit: profile.user_limits?.[0]?.daily_limit || 5,
-          monthly_limit: profile.user_limits?.[0]?.monthly_limit || 50
-        });
-      }
+          // 월간 사용량
+          const { count: monthlyCount } = await supabase
+            .from('character_generations')
+            .select('*', { count: 'exact', head: true })
+            .eq('user_id', user.id)
+            .eq('success', true)
+            .gte('created_at', monthStart.toISOString());
 
-      setUserStats(stats);
+          // 총 토큰 사용량
+          const { data: tokenData } = await supabase
+            .from('character_generations')
+            .select('token_usage')
+            .eq('user_id', user.id)
+            .eq('success', true);
+
+          const totalTokens = tokenData?.reduce((sum, record) => sum + (record.token_usage || 0), 0) || 0;
+
+          return {
+            user_id: user.id,
+            email: user.email,
+            full_name: user.full_name,
+            daily_count: dailyCount || 0,
+            monthly_count: monthlyCount || 0,
+            daily_limit: user.user_limits?.daily_limit || 5,
+            monthly_limit: user.user_limits?.monthly_limit || 50,
+            total_tokens: totalTokens
+          };
+        })
+      );
+
+      setUserStats(userStatsWithCounts);
     } catch (error: any) {
+      console.error('사용자 통계 로드 오류:', error);
       toast({
         title: "오류",
         description: "사용자 통계를 불러오는데 실패했습니다.",
         variant: "destructive",
       });
+    }
+  };
+
+  const fetchDashboardStats = async () => {
+    try {
+      // 총 사용자 수
+      const { count: totalUsers } = await supabase
+        .from('profiles')
+        .select('*', { count: 'exact', head: true })
+        .eq('approval_status', 'approved');
+
+      // 총 생성 횟수
+      const { count: totalGenerations } = await supabase
+        .from('character_generations')
+        .select('*', { count: 'exact', head: true });
+
+      // 총 토큰 사용량
+      const { data: tokenData } = await supabase
+        .from('character_generations')
+        .select('token_usage, success');
+
+      const totalTokens = tokenData?.reduce((sum, record) => sum + (record.token_usage || 0), 0) || 0;
+      const successfulRequests = tokenData?.filter(record => record.success).length || 0;
+      const successRate = totalGenerations ? (successfulRequests / totalGenerations) * 100 : 0;
+
+      setDashboardStats({
+        total_users: totalUsers || 0,
+        total_generations: totalGenerations || 0,
+        total_tokens: totalTokens,
+        success_rate: successRate
+      });
+    } catch (error: any) {
+      console.error('대시보드 통계 로드 오류:', error);
     }
   };
 
@@ -139,9 +228,7 @@ const Admin = () => {
         .update({ approval_status: status })
         .eq('id', userId);
 
-      if (error) {
-        throw error;
-      }
+      if (error) throw error;
 
       toast({
         title: "성공",
@@ -244,9 +331,7 @@ const Admin = () => {
         .delete()
         .eq('id', userId);
 
-      if (error) {
-        throw error;
-      }
+      if (error) throw error;
 
       toast({
         title: "삭제 완료",
@@ -271,7 +356,7 @@ const Admin = () => {
   const getStatusBadge = (status: string) => {
     switch (status) {
       case 'approved':
-        return <Badge variant="default" className="bg-green-100 text-green-800">승인됨</Badge>;
+        return <Badge variant="default">승인됨</Badge>;
       case 'rejected':
         return <Badge variant="destructive">거부됨</Badge>;
       case 'pending':
@@ -320,11 +405,56 @@ const Admin = () => {
           </div>
         </div>
 
-        <Tabs defaultValue="users" className="space-y-4">
+        <Tabs defaultValue="dashboard" className="space-y-4">
           <TabsList>
+            <TabsTrigger value="dashboard">대시보드</TabsTrigger>
             <TabsTrigger value="users">사용자 관리</TabsTrigger>
             <TabsTrigger value="stats">사용 통계</TabsTrigger>
           </TabsList>
+
+          <TabsContent value="dashboard">
+            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+              <Card>
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <CardTitle className="text-sm font-medium">총 사용자</CardTitle>
+                  <Users className="h-4 w-4 text-muted-foreground" />
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold">{dashboardStats?.total_users || 0}</div>
+                </CardContent>
+              </Card>
+              
+              <Card>
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <CardTitle className="text-sm font-medium">총 토큰 사용량</CardTitle>
+                  <TrendingUp className="h-4 w-4 text-muted-foreground" />
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold">{dashboardStats?.total_tokens?.toLocaleString() || 0}</div>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <CardTitle className="text-sm font-medium">총 생성 횟수</CardTitle>
+                  <Activity className="h-4 w-4 text-muted-foreground" />
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold">{dashboardStats?.total_generations || 0}</div>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <CardTitle className="text-sm font-medium">성공률</CardTitle>
+                  <AlertCircle className="h-4 w-4 text-muted-foreground" />
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold">{dashboardStats?.success_rate.toFixed(1) || 0}%</div>
+                </CardContent>
+              </Card>
+            </div>
+          </TabsContent>
 
           <TabsContent value="users">
             <Card>
@@ -418,10 +548,7 @@ const Admin = () => {
           <TabsContent value="stats">
             <Card>
               <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <BarChart3 className="h-5 w-5" />
-                  사용 통계 및 제한 관리
-                </CardTitle>
+                <CardTitle>사용 통계 및 제한 관리</CardTitle>
                 <CardDescription>
                   사용자별 AI 캐릭터 생성 현황과 일일/월간 제한을 관리할 수 있습니다.
                 </CardDescription>
@@ -433,6 +560,7 @@ const Admin = () => {
                       <TableHead>사용자</TableHead>
                       <TableHead>일일 사용량</TableHead>
                       <TableHead>월간 사용량</TableHead>
+                      <TableHead>총 토큰 사용량</TableHead>
                       <TableHead>일일 제한</TableHead>
                       <TableHead>월간 제한</TableHead>
                       <TableHead>작업</TableHead>
@@ -456,6 +584,9 @@ const Admin = () => {
                           <Badge variant={stat.monthly_count >= stat.monthly_limit ? "destructive" : "secondary"}>
                             {stat.monthly_count} / {stat.monthly_limit}
                           </Badge>
+                        </TableCell>
+                        <TableCell>
+                          <span className="font-mono text-sm">{stat.total_tokens.toLocaleString()}</span>
                         </TableCell>
                         <TableCell>
                           {editingLimits[stat.user_id] ? (

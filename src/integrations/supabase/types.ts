@@ -18,19 +18,28 @@ export type Database = {
         Row: {
           character_data: Json
           created_at: string
+          error_message: string | null
           id: string
+          success: boolean | null
+          token_usage: number | null
           user_id: string
         }
         Insert: {
           character_data: Json
           created_at?: string
+          error_message?: string | null
           id?: string
+          success?: boolean | null
+          token_usage?: number | null
           user_id: string
         }
         Update: {
           character_data?: Json
           created_at?: string
+          error_message?: string | null
           id?: string
+          success?: boolean | null
+          token_usage?: number | null
           user_id?: string
         }
         Relationships: [
