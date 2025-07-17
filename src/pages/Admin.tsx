@@ -39,6 +39,8 @@ interface UserStats {
   full_name: string;
   daily_count: number;
   monthly_count: number;
+  character_count: number;
+  cafe_content_count: number;
   daily_limit: number;
   monthly_limit: number;
   total_tokens: number;
@@ -155,6 +157,24 @@ const Admin = () => {
             .eq('success', true)
             .gte('created_at', monthStart.toISOString());
 
+          // 캐릭터 생성 통계 (전체)
+          const { data: generationData } = await supabase
+            .from('character_generations')
+            .select('character_data')
+            .eq('user_id', user.id)
+            .eq('success', true);
+
+          // 캐릭터 생성과 카페 콘텐츠 구분
+          const characterCount = generationData?.filter(record => {
+            const data = record.character_data as any;
+            return !data?.type || data?.type === 'character';
+          }).length || 0;
+
+          const cafeContentCount = generationData?.filter(record => {
+            const data = record.character_data as any;
+            return data?.type === 'cafe_content';
+          }).length || 0;
+
           // 총 토큰 사용량
           const { data: tokenData } = await supabase
             .from('character_generations')
@@ -170,6 +190,8 @@ const Admin = () => {
             full_name: user.full_name,
             daily_count: dailyCount || 0,
             monthly_count: monthlyCount || 0,
+            character_count: characterCount,
+            cafe_content_count: cafeContentCount,
             daily_limit: user.user_limits?.daily_limit || 5,
             monthly_limit: user.user_limits?.monthly_limit || 50,
             total_tokens: totalTokens
@@ -560,6 +582,8 @@ const Admin = () => {
                       <TableHead>사용자</TableHead>
                       <TableHead>일일 사용량</TableHead>
                       <TableHead>월간 사용량</TableHead>
+                      <TableHead>캐릭터 생성</TableHead>
+                      <TableHead>카페 콘텐츠</TableHead>
                       <TableHead>총 토큰 사용량</TableHead>
                       <TableHead>일일 제한</TableHead>
                       <TableHead>월간 제한</TableHead>
@@ -584,6 +608,12 @@ const Admin = () => {
                           <Badge variant={stat.monthly_count >= stat.monthly_limit ? "destructive" : "secondary"}>
                             {stat.monthly_count} / {stat.monthly_limit}
                           </Badge>
+                        </TableCell>
+                        <TableCell>
+                          <span className="font-mono text-sm">{stat.character_count}</span>
+                        </TableCell>
+                        <TableCell>
+                          <span className="font-mono text-sm">{stat.cafe_content_count}</span>
                         </TableCell>
                         <TableCell>
                           <span className="font-mono text-sm">{stat.total_tokens.toLocaleString()}</span>

@@ -3,9 +3,12 @@ import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { usePatientForm } from "@/hooks/usePatientForm";
 import { useCharacterGeneration } from "@/hooks/useCharacterGeneration";
+import { useCafeContentGeneration } from "@/hooks/useCafeContentGeneration";
 import { Header } from "@/components/Header";
 import { PatientForm } from "@/components/PatientForm";
 import { GeneratedCharacter } from "@/components/GeneratedCharacter";
+import { CafeContentGenerator } from "@/components/CafeContentGenerator";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { UserProfile } from "@/types/patient";
 
 const Index = () => {
@@ -27,6 +30,14 @@ const Index = () => {
     copyToClipboard,
     clearGeneration
   } = useCharacterGeneration();
+
+  const {
+    generatedContent: cafeContent,
+    isGenerating: isCafeGenerating,
+    generateCafeContent,
+    copyToClipboard: copyCafeContent,
+    clearGeneration: clearCafeContent
+  } = useCafeContentGeneration();
 
   useEffect(() => {
     fetchUserProfile();
@@ -70,24 +81,47 @@ const Index = () => {
     resetForm();
   };
 
+  const handleCafeReset = () => {
+    clearCafeContent();
+  };
+
   return (
     <div className="min-h-screen bg-background p-4">
       <div className="max-w-4xl mx-auto">
         <Header userProfile={userProfile} />
         
-        <PatientForm
-          formData={formData}
-          setFormData={setFormData}
-          onSubmit={handleSubmit}
-          onRandomGenerate={handleRandomGenerate}
-          isGenerating={isGenerating}
-        />
+        <Tabs defaultValue="character" className="w-full mt-6">
+          <TabsList className="grid w-full grid-cols-2">
+            <TabsTrigger value="character">캐릭터 생성</TabsTrigger>
+            <TabsTrigger value="cafe">카페 활동 플래닝</TabsTrigger>
+          </TabsList>
+          
+          <TabsContent value="character" className="space-y-6">
+            <PatientForm
+              formData={formData}
+              setFormData={setFormData}
+              onSubmit={handleSubmit}
+              onRandomGenerate={handleRandomGenerate}
+              isGenerating={isGenerating}
+            />
 
-        <GeneratedCharacter
-          content={generatedContent}
-          onCopy={copyToClipboard}
-          onReset={handleReset}
-        />
+            <GeneratedCharacter
+              content={generatedContent}
+              onCopy={copyToClipboard}
+              onReset={handleReset}
+            />
+          </TabsContent>
+          
+          <TabsContent value="cafe" className="space-y-6">
+            <CafeContentGenerator
+              onGenerate={generateCafeContent}
+              onCopy={copyCafeContent}
+              onReset={handleCafeReset}
+              generatedContent={cafeContent}
+              isGenerating={isCafeGenerating}
+            />
+          </TabsContent>
+        </Tabs>
       </div>
     </div>
   );

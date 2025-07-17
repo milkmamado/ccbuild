@@ -1,1 +1,7 @@
 project_id = "slvmgblyufvbpazyrrik"
+
+[functions.generate-character]
+verify_jwt = true
+
+[functions.generate-cafe-content]
+verify_jwt = true
