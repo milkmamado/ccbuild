@@ -147,7 +147,7 @@ const Auth = () => {
         <div className="text-center mb-8">
           <div className="flex items-center justify-center gap-2 mb-4">
             <User className="h-8 w-8 text-primary" />
-            <h1 className="text-3xl font-bold">아프니까 생성이다!</h1>
+            <h1 className="text-3xl font-bold">환우 생성기</h1>
           </div>
           <p className="text-muted-foreground">로그인이 필요합니다</p>
         </div>
