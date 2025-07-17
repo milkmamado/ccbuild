@@ -97,15 +97,66 @@ serve(async (req) => {
       throw new Error(`월간 생성 한도(${limits.monthly_limit}개)를 초과했습니다.`);
     }
 
+    // Parse character content to extract structured information
+    const parseCharacterInfo = (content: string) => {
+      const lines = content.split('\n');
+      const info: any = {};
+      
+      // Extract basic info
+      const nameMatch = content.match(/이름:\s*([^\n\s]+)/);
+      const ageMatch = content.match(/(\d+)세/);
+      const genderMatch = content.match(/(남|여)/);
+      const hospitalMatch = content.match(/병원:\s*([^\n]+)/);
+      const diagnosisDateMatch = content.match(/진단일자:\s*([^\n]+)/);
+      const cancerTypeMatch = content.match(/암종?:\s*([^\n]+)/);
+      const stageMatch = content.match(/병기:\s*([^\n]+)/);
+      const surgeryMatch = content.match(/수술방법:\s*([^\n]+)/);
+      
+      info.name = nameMatch ? nameMatch[1].trim() : '환자';
+      info.age = ageMatch ? ageMatch[1] : '30';
+      info.gender = genderMatch ? genderMatch[1] : '여';
+      info.hospital = hospitalMatch ? hospitalMatch[1].trim() : '병원';
+      info.diagnosisDate = diagnosisDateMatch ? diagnosisDateMatch[1].trim() : '2025년';
+      info.cancerType = cancerTypeMatch ? cancerTypeMatch[1].trim() : '암';
+      info.stage = stageMatch ? stageMatch[1].trim() : '초기';
+      info.surgery = surgeryMatch ? surgeryMatch[1].trim() : '수술';
+      info.chemotherapy = content.includes('항암') ? '항암치료 예정' : '항암치료 해당없음';
+      info.radiation = content.includes('방사선') || content.includes('방사성요오드') ? '방사선치료 예정' : '방사선치료 해당없음';
+      info.additionalTreatment = content.includes('TSH') ? 'TSH 억제요법' : '기타치료';
+      info.fullTreatmentPlan = content;
+      
+      return info;
+    };
+
+    const characterInfo = parseCharacterInfo(characterContent);
+
     // Create prompt for cafe content generation
     const prompt = `
 네이버 암 커뮤니티 활동 콘텐츠 생성기
 
-**생성된 캐릭터 정보:**
-${characterContent}
+**필수: 아래 환자 정보를 정확히 반영하여 콘텐츠 생성**
+
+환자 기본 정보:
+- 환자명: ${characterInfo.name}
+- 나이/성별: ${characterInfo.age}세/${characterInfo.gender}
+- 암종: ${characterInfo.cancerType}
+- 병기: ${characterInfo.stage}
+- 병원: ${characterInfo.hospital}
+- 진단일자: ${characterInfo.diagnosisDate}
+
+치료 계획:
+- 수술: ${characterInfo.surgery}
+- 항암치료: ${characterInfo.chemotherapy}
+- 방사선치료: ${characterInfo.radiation}
+- 기타치료: ${characterInfo.additionalTreatment}
+
+상세 치료 정보:
+${characterInfo.fullTreatmentPlan}
+
+**중요: 위 ${characterInfo.cancerType} ${characterInfo.stage} 환자 정보와 정확히 일치하는 콘텐츠만 생성하세요**
 
 **콘텐츠 생성 요청:**
-위 캐릭터를 바탕으로 네이버 암 관련 카페에서 자연스럽게 활동할 수 있는 게시글들을 완성된 형태로 생성해주세요.
+위 캐릭터를 바탕으로 네이버 ${characterInfo.cancerType} 관련 카페에서 자연스럽게 활동할 수 있는 게시글들을 생성해주세요.
 
 **출력 요구사항:**
 
@@ -120,7 +171,7 @@ ${characterContent}
 - 고민/하소연글 아이디어 2개 (제목만)
 - 정보 요청글 아이디어 2개 (제목만)
 
-**[치료 진행 단계별]** (환자의 치료 일정에 맞춰)
+**[치료 진행 단계별]** (${characterInfo.cancerType} ${characterInfo.stage}의 치료 일정에 맞춰)
 - 각 치료 시점별 적합한 게시글 아이디어들
 - 단계별로 5-7개씩 제목 생성
 
@@ -141,11 +192,12 @@ ${characterContent}
 - 다양한 상황별 대응 가능한 주제들
 
 **의학적 정확성 원칙:**
-- 제공된 캐릭터의 치료 일정과 정확히 일치하는 내용만 사용
+- 제공된 ${characterInfo.cancerType} ${characterInfo.stage} 캐릭터의 치료 일정과 정확히 일치하는 내용만 사용
 - "완치" 대신 "치료 잘 받고 있어요", "경과 좋아요" 등 표현 사용
 - 구체적 의학 수치나 확률은 피하고 일반적 경험 위주로 작성
 - 다른 환자에게 불안감을 주거나 잘못된 희망을 주지 않도록 균형잡힌 내용
 - 개인 경험 공유 형태로 작성하여 의학적 조언으로 오해받지 않도록 주의
+- ${characterInfo.age}세 ${characterInfo.gender}성의 현실적인 고민과 상황 반영
 
 **네이버 카페 특성 반영:**
 - 정중하고 진솔한 어조 유지
@@ -153,7 +205,14 @@ ${characterContent}
 - 다른 회원들과의 상호작용을 유도하는 질문이나 공감 요소 포함
 - 너무 전문적이지 않고 일반인이 이해하기 쉬운 표현 사용
 
-위 가이드라인에 따라 완성된 콘텐츠를 생성하고, 추가 질문이나 확인 없이 바로 모든 내용을 출력해주세요.
+**검증 요구사항:**
+응답에 반드시 다음 키워드들이 포함되어야 합니다:
+- ${characterInfo.cancerType}
+- ${characterInfo.stage}
+- ${characterInfo.age}세
+- ${characterInfo.hospital}
+
+이 가이드라인에 따라 해당 ${characterInfo.cancerType} ${characterInfo.stage} 환자가 자연스럽고 도움이 되는 커뮤니티 활동을 할 수 있도록 실용적인 콘텐츠를 생성해주세요.
 `;
 
     console.log('카페 콘텐츠 생성 시작:', user.id);
