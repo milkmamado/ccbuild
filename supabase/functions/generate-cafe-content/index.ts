@@ -107,17 +107,19 @@ serve(async (req) => {
       const ageMatch = content.match(/(\d+)세/);
       const genderMatch = content.match(/(남|여)/);
       const hospitalMatch = content.match(/병원:\s*([^\n]+)/);
-      const diagnosisDateMatch = content.match(/진단일자:\s*([^\n]+)/);
       const cancerTypeMatch = content.match(/암종?:\s*([^\n]+)/);
       const stageMatch = content.match(/병기:\s*([^\n]+)/);
+      
+      // Extract treatment plan
+      const treatmentPlanMatch = content.match(/### 3\. 표준 치료계획([\s\S]*?)(?=### 4\.|$)/);
       
       info.name = nameMatch ? nameMatch[1].trim() : '환자';
       info.age = ageMatch ? ageMatch[1] : '30';
       info.gender = genderMatch ? genderMatch[1] : '여';
       info.hospital = hospitalMatch ? hospitalMatch[1].trim() : '병원';
-      info.diagnosisDate = diagnosisDateMatch ? diagnosisDateMatch[1].trim() : '2025년';
       info.cancerType = cancerTypeMatch ? cancerTypeMatch[1].trim() : '암';
       info.stage = stageMatch ? stageMatch[1].trim() : '초기';
+      info.treatmentPlan = treatmentPlanMatch ? treatmentPlanMatch[1].trim() : '표준 치료';
       
       return info;
     };
@@ -126,16 +128,15 @@ serve(async (req) => {
 
     // Create prompt for cafe content generation
     const prompt = `
-네이버 암 커뮤니티 게시글 제목 생성기
+네이버 ${characterInfo.cancerType} 커뮤니티 게시글 제목 생성기
 
 **환자 정보:**
 - 이름: ${characterInfo.name} (${characterInfo.age}세/${characterInfo.gender})
-- 암종: ${characterInfo.cancerType} ${characterInfo.stage}
+- 진단: ${characterInfo.cancerType} ${characterInfo.stage}
 - 병원: ${characterInfo.hospital}
-- 진단일: ${characterInfo.diagnosisDate}
+- 치료: ${characterInfo.treatmentPlan}
 
-**요청사항:**
-위 ${characterInfo.cancerType} ${characterInfo.stage} 환자가 네이버 카페에서 시기별로 올릴 수 있는 게시글 제목들을 생성해주세요.
+**중요: ${characterInfo.cancerType}의 고유한 치료 특성을 정확히 반영하세요**
 
 **출력 형식:**
 
@@ -152,8 +153,8 @@ serve(async (req) => {
 - 
 - 
 
-### 3. 치료 진행 단계별 (15개)
-- 
+### 3. 치료 진행 단계별 (15개) 
+**${characterInfo.cancerType} 특화 치료 과정에 맞춰**
 - 
 - 
 - 
@@ -180,11 +181,11 @@ serve(async (req) => {
 - 
 - 
 
-**중요:** 
-- ${characterInfo.cancerType} ${characterInfo.stage}에 맞는 제목만 생성
-- ${characterInfo.age}세 ${characterInfo.gender}성의 현실적 고민 반영
-- 제목만 간단히 나열
-- 의학적으로 정확한 내용
+**필수 준수사항:**
+- ${characterInfo.cancerType}에만 해당하는 치료/증상만 포함
+- 다른 암종의 치료법(항암제, 탈모 등) 절대 포함 금지
+- ${characterInfo.age}세 ${characterInfo.gender}성 환자 관점
+- 의학적 정확성 100% 준수
 `;
 
     console.log('카페 콘텐츠 생성 시작:', user.id);
