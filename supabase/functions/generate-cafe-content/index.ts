@@ -110,7 +110,6 @@ serve(async (req) => {
       const diagnosisDateMatch = content.match(/진단일자:\s*([^\n]+)/);
       const cancerTypeMatch = content.match(/암종?:\s*([^\n]+)/);
       const stageMatch = content.match(/병기:\s*([^\n]+)/);
-      const surgeryMatch = content.match(/수술방법:\s*([^\n]+)/);
       
       info.name = nameMatch ? nameMatch[1].trim() : '환자';
       info.age = ageMatch ? ageMatch[1] : '30';
@@ -119,11 +118,6 @@ serve(async (req) => {
       info.diagnosisDate = diagnosisDateMatch ? diagnosisDateMatch[1].trim() : '2025년';
       info.cancerType = cancerTypeMatch ? cancerTypeMatch[1].trim() : '암';
       info.stage = stageMatch ? stageMatch[1].trim() : '초기';
-      info.surgery = surgeryMatch ? surgeryMatch[1].trim() : '수술';
-      info.chemotherapy = content.includes('항암') ? '항암치료 예정' : '항암치료 해당없음';
-      info.radiation = content.includes('방사선') || content.includes('방사성요오드') ? '방사선치료 예정' : '방사선치료 해당없음';
-      info.additionalTreatment = content.includes('TSH') ? 'TSH 억제요법' : '기타치료';
-      info.fullTreatmentPlan = content;
       
       return info;
     };
@@ -132,87 +126,65 @@ serve(async (req) => {
 
     // Create prompt for cafe content generation
     const prompt = `
-네이버 암 커뮤니티 활동 콘텐츠 생성기
+네이버 암 커뮤니티 게시글 제목 생성기
 
-**필수: 아래 환자 정보를 정확히 반영하여 콘텐츠 생성**
-
-환자 기본 정보:
-- 환자명: ${characterInfo.name}
-- 나이/성별: ${characterInfo.age}세/${characterInfo.gender}
-- 암종: ${characterInfo.cancerType}
-- 병기: ${characterInfo.stage}
+**환자 정보:**
+- 이름: ${characterInfo.name} (${characterInfo.age}세/${characterInfo.gender})
+- 암종: ${characterInfo.cancerType} ${characterInfo.stage}
 - 병원: ${characterInfo.hospital}
-- 진단일자: ${characterInfo.diagnosisDate}
+- 진단일: ${characterInfo.diagnosisDate}
 
-치료 계획:
-- 수술: ${characterInfo.surgery}
-- 항암치료: ${characterInfo.chemotherapy}
-- 방사선치료: ${characterInfo.radiation}
-- 기타치료: ${characterInfo.additionalTreatment}
+**요청사항:**
+위 ${characterInfo.cancerType} ${characterInfo.stage} 환자가 네이버 카페에서 시기별로 올릴 수 있는 게시글 제목들을 생성해주세요.
 
-상세 치료 정보:
-${characterInfo.fullTreatmentPlan}
+**출력 형식:**
 
-**중요: 위 ${characterInfo.cancerType} ${characterInfo.stage} 환자 정보와 정확히 일치하는 콘텐츠만 생성하세요**
+### 1. 활동 성격 (랜덤)
+성격: [적극적/소극적, 낙관적/현실적 중 랜덤]
+말투: [정중함/친근함, 이모티콘 사용도]
 
-**콘텐츠 생성 요청:**
-위 캐릭터를 바탕으로 네이버 ${characterInfo.cancerType} 관련 카페에서 자연스럽게 활동할 수 있는 게시글들을 생성해주세요.
+### 2. 진단~치료 전 단계 (7개)
+- 
+- 
+- 
+- 
+- 
+- 
+- 
 
-**출력 요구사항:**
+### 3. 치료 진행 단계별 (15개)
+- 
+- 
+- 
+- 
+- 
+- 
+- 
+- 
+- 
+- 
+- 
+- 
+- 
+- 
+- 
+- 
 
-### 1. 활동 캐릭터 설정 (랜덤)
-- **성격**: [적극적/소극적, 낙관적/현실적, 꼼꼼함/대범함 중 랜덤 선택]
-- **소통 스타일**: [질문 많은 타입/경험 공유 타입/조용한 관찰 타입]
-- **말투**: [정중한 존댓말/친근한 반말 혼용/이모티콘 사용 빈도]
+### 4. 회복/관리 단계 (8개)
+- 
+- 
+- 
+- 
+- 
+- 
+- 
+- 
 
-### 2. 시기별 게시글 로드맵
-**[진단~치료 전 단계]**
-- 질문글 아이디어 3개 (제목만)
-- 고민/하소연글 아이디어 2개 (제목만)
-- 정보 요청글 아이디어 2개 (제목만)
-
-**[치료 진행 단계별]** (${characterInfo.cancerType} ${characterInfo.stage}의 치료 일정에 맞춰)
-- 각 치료 시점별 적합한 게시글 아이디어들
-- 단계별로 5-7개씩 제목 생성
-
-**[회복/관리 단계]**
-- 경험 공유글 아이디어
-- 후배 환자 격려글 아이디어
-- 정기검진 관련 글 아이디어
-
-### 3. 바로 사용 가능한 완성 게시글 (10개)
-각각 다음 형식으로:
-- **제목**: [실제 카페에 올릴 수 있는 제목]
-- **본문**: [300-500자 완성된 게시글 내용]
-- **시점**: [언제 올리면 적절한지]
-- **예상 반응**: [다른 회원들이 남길 만한 댓글 3개]
-
-### 4. 추가 활용 소재 (20개)
-- 급하게 써야 할 때 사용할 수 있는 간단한 게시글 제목들
-- 다양한 상황별 대응 가능한 주제들
-
-**의학적 정확성 원칙:**
-- 제공된 ${characterInfo.cancerType} ${characterInfo.stage} 캐릭터의 치료 일정과 정확히 일치하는 내용만 사용
-- "완치" 대신 "치료 잘 받고 있어요", "경과 좋아요" 등 표현 사용
-- 구체적 의학 수치나 확률은 피하고 일반적 경험 위주로 작성
-- 다른 환자에게 불안감을 주거나 잘못된 희망을 주지 않도록 균형잡힌 내용
-- 개인 경험 공유 형태로 작성하여 의학적 조언으로 오해받지 않도록 주의
-- ${characterInfo.age}세 ${characterInfo.gender}성의 현실적인 고민과 상황 반영
-
-**네이버 카페 특성 반영:**
-- 정중하고 진솔한 어조 유지
-- 적절한 이모티콘 사용으로 친근함 표현
-- 다른 회원들과의 상호작용을 유도하는 질문이나 공감 요소 포함
-- 너무 전문적이지 않고 일반인이 이해하기 쉬운 표현 사용
-
-**검증 요구사항:**
-응답에 반드시 다음 키워드들이 포함되어야 합니다:
-- ${characterInfo.cancerType}
-- ${characterInfo.stage}
-- ${characterInfo.age}세
-- ${characterInfo.hospital}
-
-이 가이드라인에 따라 해당 ${characterInfo.cancerType} ${characterInfo.stage} 환자가 자연스럽고 도움이 되는 커뮤니티 활동을 할 수 있도록 실용적인 콘텐츠를 생성해주세요.
+**중요:** 
+- ${characterInfo.cancerType} ${characterInfo.stage}에 맞는 제목만 생성
+- ${characterInfo.age}세 ${characterInfo.gender}성의 현실적 고민 반영
+- 제목만 간단히 나열
+- 의학적으로 정확한 내용
 `;
 
     console.log('카페 콘텐츠 생성 시작:', user.id);
