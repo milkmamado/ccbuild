@@ -71,19 +71,21 @@ serve(async (req) => {
 
     const limits = userLimits || { daily_limit: 5, monthly_limit: 50 };
 
-    // Count today's generations
+    // Count today's cafe content generations only
     const { count: dailyCount } = await supabase
       .from('character_generations')
       .select('*', { count: 'exact', head: true })
       .eq('user_id', user.id)
+      .eq('character_data->type', 'cafe_content')
       .gte('created_at', today + 'T00:00:00.000Z')
       .lt('created_at', today + 'T23:59:59.999Z');
 
-    // Count this month's generations
+    // Count this month's cafe content generations only
     const { count: monthlyCount } = await supabase
       .from('character_generations')
       .select('*', { count: 'exact', head: true })
       .eq('user_id', user.id)
+      .eq('character_data->type', 'cafe_content')
       .gte('created_at', startOfMonth)
       .lte('created_at', endOfMonth);
 
