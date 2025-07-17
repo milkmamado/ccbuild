@@ -272,6 +272,19 @@ ${formData.surgeryMethod ? `- 수술방법: ${formData.surgeryMethod}` : ''}
 - □ 조기암에 과치료가 포함되지 않았는가?
 
 **모든 의학적 내용은 현재 NCCN, ESMO, 대한종양학회 가이드라인 및 한국 암 진료 권고안에 부합해야 합니다.**
+
+## 필수 정보 표시 가이드라인
+**중요: 환자 기본 프로필 섹션에 다음 정보들을 반드시 포함해야 합니다:**
+
+### 1. 환자 기본 프로필
+- 나이/성별/이름 정보
+- 발견 경위 및 초기 증상 (기존 내용 유지)
+- **진료 병원**: ${formData.hospital}
+- **진단일자**: ${formData.diagnosisDate}
+- **병기**: ${formData.stage}
+${formData.surgeryMethod ? `- **수술방법**: ${formData.surgeryMethod}` : ''}
+
+이 정보들은 환자 기본 프로필 섹션에서 누락되지 않고 반드시 명시되어야 합니다.
 `;
 
     const response = await fetch('https://api.anthropic.com/v1/messages', {
