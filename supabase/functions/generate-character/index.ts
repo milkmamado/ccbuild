@@ -287,28 +287,44 @@ ${formData.surgeryMethod ? `- **수술방법**: ${formData.surgeryMethod}` : ''}
 이 정보들은 환자 기본 프로필 섹션에서 누락되지 않고 반드시 명시되어야 합니다.
 `;
 
-    const response = await fetch('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-api-key': claudeApiKey,
-        'anthropic-version': '2023-06-01'
-      },
-      body: JSON.stringify({
-        model: 'claude-3-5-sonnet-20241022',
-        max_tokens: 4000,
-        messages: [
-          {
-            role: 'user',
-            content: prompt
-          }
-        ]
-      })
-    });
+    // Claude API 호출 (재시도 로직 포함)
+    const callClaudeAPI = async (retryCount = 0) => {
+      const response = await fetch('https://api.anthropic.com/v1/messages', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-api-key': claudeApiKey,
+          'anthropic-version': '2023-06-01'
+        },
+        body: JSON.stringify({
+          model: 'claude-3-5-sonnet-20241022',
+          max_tokens: 4000,
+          messages: [
+            {
+              role: 'user',
+              content: prompt
+            }
+          ]
+        })
+      });
 
-    if (!response.ok) {
-      throw new Error(`Claude API error: ${response.status}`);
-    }
+      // 429 (Rate Limit), 529 (Overloaded) 등의 경우 재시도
+      if (!response.ok && (response.status === 429 || response.status === 529) && retryCount < 3) {
+        console.log(`Claude API error ${response.status}, retrying... (${retryCount + 1}/3)`);
+        await new Promise(resolve => setTimeout(resolve, (retryCount + 1) * 2000)); // 점진적 대기
+        return callClaudeAPI(retryCount + 1);
+      }
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error(`Claude API error: ${response.status} - ${errorText}`);
+        throw new Error(`Claude API 오류 (${response.status}): 서비스가 일시적으로 사용할 수 없습니다. 잠시 후 다시 시도해주세요.`);
+      }
+
+      return response;
+    };
+
+    const response = await callClaudeAPI();
 
     const data = await response.json();
     const generatedContent = data.content[0].text;
