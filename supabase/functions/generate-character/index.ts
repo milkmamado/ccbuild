@@ -6,6 +6,11 @@ const claudeApiKey = Deno.env.get('CLAUDE_API_KEY');
 const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
 const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
 
+// API 키 확인
+if (!claudeApiKey) {
+  console.error('CLAUDE_API_KEY가 설정되지 않았습니다.');
+}
+
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
@@ -14,6 +19,17 @@ const corsHeaders = {
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
+  }
+
+  // API 키 체크
+  if (!claudeApiKey) {
+    return new Response(JSON.stringify({ 
+      success: false, 
+      error: 'Claude API 키가 설정되지 않았습니다. 관리자에게 문의하세요.' 
+    }), {
+      status: 500,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
   }
 
   try {
