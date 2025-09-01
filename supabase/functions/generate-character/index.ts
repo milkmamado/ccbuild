@@ -336,17 +336,28 @@ ${formData.surgeryMethod ? `- **수술방법**: ${formData.surgeryMethod}` : ''}
   } catch (error) {
     console.error('Error in generate-character function:', error);
     
-    // 실패한 요청도 기록 (토큰 사용량 0으로)
-    if (user) {
-      await supabase
-        .from('character_generations')
-        .insert({
-          user_id: user.id,
-          character_data: {},
-          token_usage: 0,
-          success: false,
-          error_message: error.message
-        });
+    // 실패한 요청도 기록 (사용자 정보가 있는 경우에만)
+    try {
+      const authHeader = req.headers.get('Authorization');
+      if (authHeader) {
+        const token = authHeader.replace('Bearer ', '');
+        const supabase = createClient(supabaseUrl, supabaseServiceKey);
+        const { data: { user } } = await supabase.auth.getUser(token);
+        
+        if (user) {
+          await supabase
+            .from('character_generations')
+            .insert({
+              user_id: user.id,
+              character_data: {},
+              token_usage: 0,
+              success: false,
+              error_message: error.message
+            });
+        }
+      }
+    } catch (logError) {
+      console.error('Error logging failure:', logError);
     }
 
     return new Response(JSON.stringify({ 
