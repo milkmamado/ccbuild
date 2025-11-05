@@ -1,6 +1,6 @@
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.51.0';
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.3';
 
 const claudeApiKey = Deno.env.get('CLAUDE_API_KEY');
 const supabaseUrl = Deno.env.get('SUPABASE_URL');
@@ -89,11 +89,11 @@ serve(async (req) => {
       .gte('created_at', startOfMonth)
       .lte('created_at', endOfMonth);
 
-    if (dailyCount >= limits.daily_limit) {
+    if ((dailyCount ?? 0) >= limits.daily_limit) {
       throw new Error(`일일 생성 한도(${limits.daily_limit}개)를 초과했습니다.`);
     }
 
-    if (monthlyCount >= limits.monthly_limit) {
+    if ((monthlyCount ?? 0) >= limits.monthly_limit) {
       throw new Error(`월간 생성 한도(${limits.monthly_limit}개)를 초과했습니다.`);
     }
 

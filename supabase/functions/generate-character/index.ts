@@ -1,6 +1,6 @@
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.3';
 
 const claudeApiKey = Deno.env.get('CLAUDE_API_KEY');
 const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
@@ -365,7 +365,7 @@ ${formData.surgeryMethod ? `- **수술방법**: ${formData.surgeryMethod}` : ''}
     }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
-  } catch (error) {
+  } catch (error: any) {
     console.error('Error in generate-character function:', error);
     
     // 실패한 요청도 기록 (사용자 정보가 있는 경우에만)
@@ -384,7 +384,7 @@ ${formData.surgeryMethod ? `- **수술방법**: ${formData.surgeryMethod}` : ''}
               character_data: {},
               token_usage: 0,
               success: false,
-              error_message: error.message
+              error_message: error?.message || 'Unknown error'
             });
         }
       }
@@ -394,7 +394,7 @@ ${formData.surgeryMethod ? `- **수술방법**: ${formData.surgeryMethod}` : ''}
 
     return new Response(JSON.stringify({ 
       success: false, 
-      error: error.message 
+      error: error?.message || 'Unknown error'
     }), {
       status: 500,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
