@@ -99,27 +99,39 @@ serve(async (req) => {
 
     // Parse character content to extract structured information
     const parseCharacterInfo = (content: string) => {
-      const lines = content.split('\n');
       const info: any = {};
       
-      // Extract basic info
-      const nameMatch = content.match(/이름:\s*([^\n\s]+)/);
-      const ageMatch = content.match(/(\d+)세/);
-      const genderMatch = content.match(/(남|여)/);
-      const hospitalMatch = content.match(/병원:\s*([^\n]+)/);
-      const cancerTypeMatch = content.match(/암종?:\s*([^\n]+)/);
-      const stageMatch = content.match(/병기:\s*([^\n]+)/);
+      // Extract basic info - improved patterns
+      const nameMatch = content.match(/(?:이름|환자명)[:\s*]+([가-힣]+)/i);
+      const ageMatch = content.match(/(?:나이|연령)[:/\s*]+(\d+)세/i) || content.match(/(\d+)세\s*(?:남|여)/);
+      const genderMatch = content.match(/(?:성별|나이\/성별)[:/\s*]+\d*세?\s*(남|여)성?/i) || content.match(/(\d+세)\s*(남|여)/);
+      const hospitalMatch = content.match(/(?:진료\s*병원|병원)[:\s*]+([^\n]+)/i);
       
-      // Extract treatment plan
-      const treatmentPlanMatch = content.match(/### 3\. 표준 치료계획([\s\S]*?)(?=### 4\.|$)/);
+      // Extract cancer type - try multiple patterns
+      let cancerType = '암';
+      const cancerTypeMatch1 = content.match(/##\s*\d+\.\s*([가-힣]+암)\s+\d+기/);
+      const cancerTypeMatch2 = content.match(/진단일자.*?\n.*?병기.*?\n.*?수술방법/s);
+      
+      if (cancerTypeMatch1) {
+        cancerType = cancerTypeMatch1[1];
+      } else {
+        // Look at the title pattern
+        const titleMatch = content.match(/#\s*([가-힣]+암)\s+\d+기\s+환자/);
+        if (titleMatch) cancerType = titleMatch[1];
+      }
+      
+      const stageMatch = content.match(/(?:병기|단계)[:\s*]+(\d+기|[IVX]+기?|Stage\s+[IVX]+[ABC]?)/i);
+      
+      // Extract treatment plan section
+      const treatmentPlanMatch = content.match(/##\s*3\.\s*표준\s*치료계획[\s\S]*?(?=##\s*4\.|$)/i);
       
       info.name = nameMatch ? nameMatch[1].trim() : '환자';
       info.age = ageMatch ? ageMatch[1] : '30';
-      info.gender = genderMatch ? genderMatch[1] : '여';
+      info.gender = genderMatch ? genderMatch[2] : '여';
       info.hospital = hospitalMatch ? hospitalMatch[1].trim() : '병원';
-      info.cancerType = cancerTypeMatch ? cancerTypeMatch[1].trim() : '암';
+      info.cancerType = cancerType;
       info.stage = stageMatch ? stageMatch[1].trim() : '초기';
-      info.treatmentPlan = treatmentPlanMatch ? treatmentPlanMatch[1].trim() : '표준 치료';
+      info.treatmentPlan = treatmentPlanMatch ? treatmentPlanMatch[0].substring(0, 500) : '표준 치료';
       
       return info;
     };
