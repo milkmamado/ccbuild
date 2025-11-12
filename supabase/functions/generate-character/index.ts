@@ -70,17 +70,11 @@ serve(async (req) => {
         .from('user_limits')
         .select('daily_limit, monthly_limit')
         .eq('user_id', user.id)
-        .single();
+        .maybeSingle();
 
-      if (!userLimit) {
-        return new Response(JSON.stringify({ 
-          success: false, 
-          error: '사용자 제한 설정을 찾을 수 없습니다.' 
-        }), {
-          status: 400,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        });
-      }
+      // 제한 설정이 없으면 기본값 사용 (일일 5회, 월간 50회)
+      const dailyLimit = userLimit?.daily_limit || 5;
+      const monthlyLimit = userLimit?.monthly_limit || 50;
 
       // 일일 사용량 확인
       const today = new Date();
@@ -92,10 +86,10 @@ serve(async (req) => {
         .eq('user_id', user.id)
         .gte('created_at', today.toISOString());
 
-      if ((dailyCount || 0) >= userLimit.daily_limit) {
+      if ((dailyCount || 0) >= dailyLimit) {
         return new Response(JSON.stringify({ 
           success: false, 
-          error: `일일 생성 한도(${userLimit.daily_limit}회)를 초과했습니다.` 
+          error: `일일 생성 한도(${dailyLimit}회)를 초과했습니다.` 
         }), {
           status: 429,
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -111,10 +105,10 @@ serve(async (req) => {
         .eq('user_id', user.id)
         .gte('created_at', monthStart.toISOString());
 
-      if ((monthlyCount || 0) >= userLimit.monthly_limit) {
+      if ((monthlyCount || 0) >= monthlyLimit) {
         return new Response(JSON.stringify({ 
           success: false, 
-          error: `월간 생성 한도(${userLimit.monthly_limit}회)를 초과했습니다.` 
+          error: `월간 생성 한도(${monthlyLimit}회)를 초과했습니다.` 
         }), {
           status: 429,
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
