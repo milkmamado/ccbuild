@@ -129,7 +129,7 @@ const Admin = () => {
           id,
           email,
           full_name,
-          user_limits!inner(daily_limit, monthly_limit)
+          user_limits(daily_limit, monthly_limit)
         `)
         .eq('approval_status', 'approved');
 
