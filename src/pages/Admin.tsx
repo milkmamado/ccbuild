@@ -192,8 +192,8 @@ const Admin = () => {
             monthly_count: monthlyCount || 0,
             character_count: characterCount,
             cafe_content_count: cafeContentCount,
-            daily_limit: user.user_limits?.daily_limit || 5,
-            monthly_limit: user.user_limits?.monthly_limit || 50,
+            daily_limit: user.user_limits?.[0]?.daily_limit || user.user_limits?.daily_limit || 10,
+            monthly_limit: user.user_limits?.[0]?.monthly_limit || user.user_limits?.monthly_limit || 50,
             total_tokens: totalTokens
           };
         })
