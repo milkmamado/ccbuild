@@ -5,8 +5,11 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.3';
 const claudeApiKey = Deno.env.get('CLAUDE_API_KEY');
 const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
 const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+const CLAUDE_MODEL = 'claude-sonnet-4-5';
+const CLAUDE_MAX_TOKENS = 8000;
+const MAX_CONTINUATIONS = 4;
+const CONTINUATION_INSTRUCTION = '방금 응답이 길이 제한으로 중간에 끊겼습니다. 이미 작성한 내용은 절대 반복하지 말고, 마지막 미완성 문장의 바로 다음 부분부터 이어서 작성하세요. 새로운 제목이나 처음 섹션을 다시 쓰지 말고 남은 내용만 같은 마크다운 형식으로 끝까지 완성하세요.';
 
-// API 키 확인
 if (!claudeApiKey) {
   console.error('CLAUDE_API_KEY가 설정되지 않았습니다.');
 }
@@ -16,16 +19,125 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
+type ClaudeMessage = {
+  role: 'user' | 'assistant';
+  content: string;
+};
+
+const extractTextFromClaudeResponse = (data: any): string => {
+  if (!Array.isArray(data?.content)) return '';
+
+  return data.content
+    .filter((block: any) => block?.type === 'text' && typeof block.text === 'string')
+    .map((block: any) => block.text)
+    .join('');
+};
+
+const mergeContinuationText = (existingText: string, nextChunk: string): string => {
+  if (!existingText) return nextChunk;
+
+  const maxOverlap = Math.min(existingText.length, nextChunk.length, 300);
+
+  for (let size = maxOverlap; size >= 20; size--) {
+    if (existingText.slice(-size) === nextChunk.slice(0, size)) {
+      return existingText + nextChunk.slice(size);
+    }
+  }
+
+  return existingText + nextChunk;
+};
+
+const callClaudeAPI = async (messages: ClaudeMessage[], retryCount = 0): Promise<Response> => {
+  const response = await fetch('https://api.anthropic.com/v1/messages', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'x-api-key': claudeApiKey!,
+      'anthropic-version': '2023-06-01',
+    },
+    body: JSON.stringify({
+      model: CLAUDE_MODEL,
+      max_tokens: CLAUDE_MAX_TOKENS,
+      messages: messages.map(({ role, content }) => ({ role, content })),
+    }),
+  });
+
+  if (!response.ok && (response.status === 429 || response.status === 529) && retryCount < 3) {
+    console.log(`Claude API error ${response.status}, retrying... (${retryCount + 1}/3)`);
+    await new Promise((resolve) => setTimeout(resolve, (retryCount + 1) * 2000));
+    return callClaudeAPI(messages, retryCount + 1);
+  }
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    console.error(`Claude API error: ${response.status} - ${errorText}`);
+    throw new Error(`Claude API 오류 (${response.status}): 서비스가 일시적으로 사용할 수 없습니다. 잠시 후 다시 시도해주세요.`);
+  }
+
+  return response;
+};
+
+const generateCompleteCharacter = async (prompt: string) => {
+  const initialMessages: ClaudeMessage[] = [{ role: 'user', content: prompt }];
+  let messages = [...initialMessages];
+  let fullContent = '';
+  let totalTokenUsage = 0;
+  let continuationCount = 0;
+  let finalStopReason = 'unknown';
+
+  while (continuationCount <= MAX_CONTINUATIONS) {
+    const response = await callClaudeAPI(messages);
+    const data = await response.json();
+    const chunk = extractTextFromClaudeResponse(data);
+
+    if (!chunk) {
+      throw new Error('AI 응답이 비어 있습니다.');
+    }
+
+    fullContent = mergeContinuationText(fullContent, chunk);
+    totalTokenUsage += (data.usage?.input_tokens || 0) + (data.usage?.output_tokens || 0);
+    finalStopReason = data.stop_reason ?? data.stopReason ?? 'unknown';
+
+    console.log(
+      `Claude chunk ${continuationCount + 1}: stop_reason=${finalStopReason}, chunk_chars=${chunk.length}, total_chars=${fullContent.length}`,
+    );
+
+    if (finalStopReason !== 'max_tokens') {
+      console.log(
+        `Claude generation completed: stop_reason=${finalStopReason}, continuations=${continuationCount}, total_chars=${fullContent.length}`,
+      );
+
+      return {
+        content: fullContent,
+        tokenUsage: totalTokenUsage,
+      };
+    }
+
+    continuationCount += 1;
+
+    if (continuationCount > MAX_CONTINUATIONS) {
+      break;
+    }
+
+    messages = [
+      ...initialMessages,
+      { role: 'assistant', content: fullContent },
+      { role: 'user', content: CONTINUATION_INSTRUCTION },
+    ];
+  }
+
+  throw new Error('AI 응답이 너무 길어 자동 이어쓰기를 완료하지 못했습니다. 내용을 조금 줄여 다시 시도해주세요.');
+};
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
 
-  // API 키 체크
   if (!claudeApiKey) {
-    return new Response(JSON.stringify({ 
-      success: false, 
-      error: 'Claude API 키가 설정되지 않았습니다. 관리자에게 문의하세요.' 
+    return new Response(JSON.stringify({
+      success: false,
+      error: 'Claude API 키가 설정되지 않았습니다. 관리자에게 문의하세요.',
     }), {
       status: 500,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -34,27 +146,24 @@ serve(async (req) => {
 
   try {
     const { formData } = await req.json();
-    
-    // 인증 확인
+
     const authHeader = req.headers.get('Authorization')!;
     const token = authHeader.replace('Bearer ', '');
-    
+
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
-    
-    // 토큰으로 사용자 정보 가져오기
+
     const { data: { user }, error: authError } = await supabase.auth.getUser(token);
-    
+
     if (authError || !user) {
-      return new Response(JSON.stringify({ 
-        success: false, 
-        error: '인증이 필요합니다.' 
+      return new Response(JSON.stringify({
+        success: false,
+        error: '인증이 필요합니다.',
       }), {
         status: 401,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
 
-    // 마스터 관리자 확인 (torogrr@kakao.com은 무제한)
     const { data: userProfile } = await supabase
       .from('profiles')
       .select('email, role')
@@ -63,23 +172,19 @@ serve(async (req) => {
 
     const isMasterAdmin = userProfile?.email === 'torogrr@kakao.com' && userProfile?.role === 'admin';
 
-    // 마스터 관리자가 아닌 경우에만 제한 확인
     if (!isMasterAdmin) {
-      // 사용자 제한 확인
       const { data: userLimit } = await supabase
         .from('user_limits')
         .select('daily_limit, monthly_limit')
         .eq('user_id', user.id)
         .maybeSingle();
 
-      // 제한 설정이 없으면 기본값 사용 (일일 5회, 월간 50회)
       const dailyLimit = userLimit?.daily_limit || 5;
       const monthlyLimit = userLimit?.monthly_limit || 50;
 
-      // 일일 사용량 확인
       const today = new Date();
       today.setHours(0, 0, 0, 0);
-      
+
       const { count: dailyCount } = await supabase
         .from('character_generations')
         .select('*', { count: 'exact', head: true })
@@ -87,18 +192,17 @@ serve(async (req) => {
         .gte('created_at', today.toISOString());
 
       if ((dailyCount || 0) >= dailyLimit) {
-        return new Response(JSON.stringify({ 
-          success: false, 
-          error: `일일 생성 한도(${dailyLimit}회)를 초과했습니다.` 
+        return new Response(JSON.stringify({
+          success: false,
+          error: `일일 생성 한도(${dailyLimit}회)를 초과했습니다.`,
         }), {
           status: 429,
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         });
       }
 
-      // 월간 사용량 확인
       const monthStart = new Date(today.getFullYear(), today.getMonth(), 1);
-      
+
       const { count: monthlyCount } = await supabase
         .from('character_generations')
         .select('*', { count: 'exact', head: true })
@@ -106,9 +210,9 @@ serve(async (req) => {
         .gte('created_at', monthStart.toISOString());
 
       if ((monthlyCount || 0) >= monthlyLimit) {
-        return new Response(JSON.stringify({ 
-          success: false, 
-          error: `월간 생성 한도(${monthlyLimit}회)를 초과했습니다.` 
+        return new Response(JSON.stringify({
+          success: false,
+          error: `월간 생성 한도(${monthlyLimit}회)를 초과했습니다.`,
         }), {
           status: 429,
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -116,7 +220,7 @@ serve(async (req) => {
       }
     }
 
-const prompt = `
+    const prompt = `
 
 **중요: 당신은 의료 전문가로서 실제 암 치료 가이드라인을 정확히 준수해야 합니다.**
 **근거: NCCN v1-3.2026, ESMO 2025, ASCO 2025, 대한종양학회 가이드라인 및 2024-2026년 FDA 승인 정보 기반**
@@ -397,79 +501,34 @@ ${formData.surgeryMethod ? `- **수술방법**: ${formData.surgeryMethod}` : ''}
 **모든 의학적 내용은 NCCN v1-3.2026, ESMO 2025, ASCO 2025 가이드라인 및 한국 암 진료 권고안에 부합해야 합니다.**
 `;
 
-    // Claude API 호출 (재시도 로직 포함)
-    const callClaudeAPI = async (retryCount = 0) => {
-      const response = await fetch('https://api.anthropic.com/v1/messages', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'x-api-key': claudeApiKey,
-          'anthropic-version': '2023-06-01'
-        },
-        body: JSON.stringify({
-          model: 'claude-sonnet-4-5',
-          max_tokens: 8000,
-          messages: [
-            {
-              role: 'user',
-              content: prompt
-            }
-          ]
-        })
-      });
+    const { content: generatedContent, tokenUsage } = await generateCompleteCharacter(prompt);
 
-      // 429 (Rate Limit), 529 (Overloaded) 등의 경우 재시도
-      if (!response.ok && (response.status === 429 || response.status === 529) && retryCount < 3) {
-        console.log(`Claude API error ${response.status}, retrying... (${retryCount + 1}/3)`);
-        await new Promise(resolve => setTimeout(resolve, (retryCount + 1) * 2000)); // 점진적 대기
-        return callClaudeAPI(retryCount + 1);
-      }
-
-      if (!response.ok) {
-        const errorText = await response.text();
-        console.error(`Claude API error: ${response.status} - ${errorText}`);
-        throw new Error(`Claude API 오류 (${response.status}): 서비스가 일시적으로 사용할 수 없습니다. 잠시 후 다시 시도해주세요.`);
-      }
-
-      return response;
-    };
-
-    const response = await callClaudeAPI();
-
-    const data = await response.json();
-    const generatedContent = data.content[0].text;
-
-    // 토큰 사용량 계산 (입력 + 출력 토큰)
-    const tokenUsage = (data.usage?.input_tokens || 0) + (data.usage?.output_tokens || 0);
-
-    // 생성 기록 저장 (토큰 사용량 포함)
     await supabase
       .from('character_generations')
       .insert({
         user_id: user.id,
         character_data: formData,
         token_usage: tokenUsage,
-        success: true
+        success: true,
       });
 
-    return new Response(JSON.stringify({ 
-      success: true, 
+    return new Response(JSON.stringify({
+      success: true,
       content: generatedContent,
-      characterData: formData
+      characterData: formData,
     }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
   } catch (error: any) {
     console.error('Error in generate-character function:', error);
-    
-    // 실패한 요청도 기록 (사용자 정보가 있는 경우에만)
+
     try {
       const authHeader = req.headers.get('Authorization');
       if (authHeader) {
         const token = authHeader.replace('Bearer ', '');
         const supabase = createClient(supabaseUrl, supabaseServiceKey);
         const { data: { user } } = await supabase.auth.getUser(token);
-        
+
         if (user) {
           await supabase
             .from('character_generations')
@@ -478,7 +537,7 @@ ${formData.surgeryMethod ? `- **수술방법**: ${formData.surgeryMethod}` : ''}
               character_data: {},
               token_usage: 0,
               success: false,
-              error_message: error?.message || 'Unknown error'
+              error_message: error?.message || 'Unknown error',
             });
         }
       }
@@ -486,9 +545,9 @@ ${formData.surgeryMethod ? `- **수술방법**: ${formData.surgeryMethod}` : ''}
       console.error('Error logging failure:', logError);
     }
 
-    return new Response(JSON.stringify({ 
-      success: false, 
-      error: error?.message || 'Unknown error'
+    return new Response(JSON.stringify({
+      success: false,
+      error: error?.message || 'Unknown error',
     }), {
       status: 500,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
