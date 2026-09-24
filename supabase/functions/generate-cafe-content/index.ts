@@ -140,7 +140,7 @@ serve(async (req) => {
 
     // Create prompt for cafe content generation
     const prompt = `
-네이버 ${characterInfo.cancerType} 커뮤니티 게시글 제목 생성기
+네이버 ${characterInfo.cancerType} 커뮤니티 활동 콘텐츠 생성기 (제목 + 실제 게시글 본문)
 
 **환자 정보:**
 - 이름: ${characterInfo.name} (${characterInfo.age}세/${characterInfo.gender})
@@ -150,55 +150,91 @@ serve(async (req) => {
 
 **중요: ${characterInfo.cancerType}의 고유한 치료 특성을 정확히 반영하세요**
 
-**출력 형식:**
+**출력 형식 (반드시 이 구조를 따르세요):**
 
 ### 1. 활동 성격 (랜덤)
 성격: [적극적/소극적, 낙관적/현실적 중 랜덤]
 말투: [정중함/친근함, 이모티콘 사용도]
 
 ### 2. 진단~치료 전 단계 (7개)
-- 
-- 
-- 
-- 
-- 
-- 
-- 
+각 항목은 아래 형식으로 작성:
+**제목:** [실제 카페에 올릴 자연스러운 제목]
+**글 내용:**
+[실제 게시글 본문. 200~350자. 환자 본인 1인칭 시점. 네이버 카페 실제 글처럼 자연스럽게. 설정된 성격과 말투를 일관되게 유지]
 
-### 3. 치료 진행 단계별 (15개) 
+### 3. 치료 진행 단계별 (15개)
 **${characterInfo.cancerType} 특화 치료 과정에 맞춰**
-- 
-- 
-- 
-- 
-- 
-- 
-- 
-- 
-- 
-- 
-- 
-- 
-- 
-- 
-- 
+각 항목은 위와 동일한 형식:
+**제목:** [...]
+**글 내용:**
+[200~350자 본문. 수술 후 회복, 항암/방사선/약물 치료 중 겪는 구체적 경험, 부작용 관리, 병원 다니는 일상 등]
 
 ### 4. 회복/관리 단계 (8개)
-- 
-- 
-- 
-- 
-- 
-- 
-- 
-- 
+각 항목은 위와 동일한 형식:
+**제목:** [...]
+**글 내용:**
+[200~350자 본문. 추적 관찰, 식단/운동 관리, 일상 복귀, 같은 환우들에게 응원 등]
 
 **필수 준수사항:**
 - ${characterInfo.cancerType}에만 해당하는 치료/증상만 포함
-- 다른 암종의 치료법(항암제, 탈모 등) 절대 포함 금지
-- ${characterInfo.age}세 ${characterInfo.gender}성 환자 관점
+- 다른 암종의 치료법 절대 포함 금지 (해당 암종에 쓰이지 않는 항암제 언급 금지)
+- ${characterInfo.age}세 ${characterInfo.gender}성 환자 본인 관점의 1인칭 글
 - 의학적 정확성 100% 준수
+- '완치'라는 단어 사용 금지, 대신 '경과가 좋다', '잘 관리 중' 등 사용
+- 각 게시글은 실제 사람이 쓴 것처럼 자연스럽게, 광고 티 나지 않게
+- 질문 없이 바로 결과물만 출력하세요
+- 모든 단계(총 30개 게시글)를 빠짐없이 끝까지 출력하세요
 `;
+
+    // Generate with continuation support to prevent truncation
+    const MAX_CONTINUATIONS = 4;
+    const callClaude = async (messages: any[]) => {
+      const res = await fetch('https://api.anthropic.com/v1/messages', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-API-Key': claudeApiKey!,
+          'anthropic-version': '2023-06-01'
+        },
+        body: JSON.stringify({
+          model: 'claude-sonnet-4-5',
+          max_tokens: 8000,
+          temperature: 0.7,
+          messages
+        })
+      });
+      if (!res.ok) {
+        const errorData = await res.text();
+        console.error('Claude API 오류:', errorData);
+        throw new Error('AI 서비스에 일시적인 문제가 발생했습니다. 잠시 후 다시 시도해주세요.');
+      }
+      return await res.json();
+    };
+
+    console.log('카페 콘텐츠 생성 시작:', user.id);
+
+    const messages: any[] = [{ role: 'user', content: prompt }];
+    let generatedContent = '';
+    let totalTokenUsage = 0;
+
+    for (let attempt = 0; attempt <= MAX_CONTINUATIONS; attempt++) {
+      const aiResponse = await callClaude(messages);
+      const chunk: string = aiResponse.content[0].text;
+      generatedContent += chunk;
+      totalTokenUsage += (aiResponse.usage?.input_tokens || 0) + (aiResponse.usage?.output_tokens || 0);
+
+      if (aiResponse.stop_reason !== 'max_tokens') {
+        break; // 완성됨
+      }
+
+      // 끊겼으면 이어서 계속 작성 요청
+      console.log(`응답이 잘렸습니다 (시도 ${attempt + 1}). 이어쓰기 진행...`);
+      messages.push({ role: 'assistant', content: chunk });
+      messages.push({
+        role: 'user',
+        content: '방금 출력이 중간에 끊겼습니다. 끊긴 지점 바로 다음부터 이어서 나머지 내용을 끝까지 완성해주세요. 앞 내용을 반복하지 말고, 마지막 게시글까지 빠짐없이 출력하세요.'
+      });
+    }
 
     console.log('카페 콘텐츠 생성 시작:', user.id);
 
