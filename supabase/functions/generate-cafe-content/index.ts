@@ -236,39 +236,7 @@ serve(async (req) => {
       });
     }
 
-    console.log('카페 콘텐츠 생성 시작:', user.id);
-
-    // Call Claude API
-    const response = await fetch('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'X-API-Key': claudeApiKey!,
-        'anthropic-version': '2023-06-01'
-      },
-      body: JSON.stringify({
-        model: 'claude-sonnet-4-5',
-        max_tokens: 8000,
-        temperature: 0.7,
-        messages: [
-          {
-            role: 'user',
-            content: prompt
-          }
-        ]
-      })
-    });
-
-    if (!response.ok) {
-      const errorData = await response.text();
-      console.error('Claude API 오류:', errorData);
-      throw new Error('AI 서비스에 일시적인 문제가 발생했습니다. 잠시 후 다시 시도해주세요.');
-    }
-
-    const aiResponse = await response.json();
-    const generatedContent = aiResponse.content[0].text;
-    const tokenUsage = aiResponse.usage?.input_tokens + aiResponse.usage?.output_tokens || 0;
-
+    const tokenUsage = totalTokenUsage;
     console.log('카페 콘텐츠 생성 완료. 토큰 사용량:', tokenUsage);
 
     // Log generation attempt to database
