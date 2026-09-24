@@ -520,22 +520,47 @@ ${formData.surgeryMethod ? `- **수술방법**: ${formData.surgeryMethod}` : ''}
 **모든 의학적 내용은 NCCN v1-3.2026, ESMO 2025, ASCO 2025 가이드라인 및 한국 암 진료 권고안에 부합해야 합니다.**
 `;
 
-    const { content: generatedContent, tokenUsage } = await generateCompleteCharacter(prompt);
+    // 긴 생성 시간 동안 연결이 끊기지 않도록 공백 하트비트를 스트리밍 (JSON 앞 공백은 유효)
+    const encoder = new TextEncoder();
+    const stream = new ReadableStream({
+      async start(controller) {
+        const heartbeat = setInterval(() => {
+          try { controller.enqueue(encoder.encode(' ')); } catch (_) { /* closed */ }
+        }, 10000);
+        try {
+          const { content: generatedContent, tokenUsage } = await generateCompleteCharacter(prompt);
+          await supabase.from('character_generations').insert({
+            user_id: user.id,
+            character_data: formData,
+            token_usage: tokenUsage,
+            success: true,
+          });
+          controller.enqueue(encoder.encode(JSON.stringify({
+            success: true,
+            content: generatedContent,
+            characterData: formData,
+          })));
+        } catch (err: any) {
+          console.error('Streaming generation error:', err);
+          await supabase.from('character_generations').insert({
+            user_id: user.id,
+            character_data: {},
+            token_usage: 0,
+            success: false,
+            error_message: err?.message || 'Unknown error',
+          });
+          controller.enqueue(encoder.encode(JSON.stringify({
+            success: false,
+            error: err?.message || 'Unknown error',
+          })));
+        } finally {
+          clearInterval(heartbeat);
+          controller.close();
+        }
+      },
+    });
 
-    await supabase
-      .from('character_generations')
-      .insert({
-        user_id: user.id,
-        character_data: formData,
-        token_usage: tokenUsage,
-        success: true,
-      });
-
-    return new Response(JSON.stringify({
-      success: true,
-      content: generatedContent,
-      characterData: formData,
-    }), {
+    return new Response(stream, {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
   } catch (error: any) {
