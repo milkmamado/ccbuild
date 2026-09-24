@@ -147,7 +147,16 @@ serve(async (req) => {
   try {
     const { formData } = await req.json();
 
-    const authHeader = req.headers.get('Authorization')!;
+    const authHeader = req.headers.get('Authorization');
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      return new Response(JSON.stringify({
+        success: false,
+        error: '인증이 필요합니다.',
+      }), {
+        status: 401,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
     const token = authHeader.replace('Bearer ', '');
 
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
@@ -166,13 +175,23 @@ serve(async (req) => {
 
     const { data: userProfile } = await supabase
       .from('profiles')
-      .select('email, role')
+      .select('role, approval_status')
       .eq('id', user.id)
-      .single();
+      .maybeSingle();
 
-    const isMasterAdmin = userProfile?.email === 'torogrr@kakao.com' && userProfile?.role === 'admin';
+    if (!userProfile || userProfile.approval_status !== 'approved') {
+      return new Response(JSON.stringify({
+        success: false,
+        error: '계정 승인이 필요합니다. 관리자에게 문의하세요.',
+      }), {
+        status: 403,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
 
-    if (!isMasterAdmin) {
+    const isAdmin = userProfile.role === 'admin';
+
+    if (!isAdmin) {
       const { data: userLimit } = await supabase
         .from('user_limits')
         .select('daily_limit, monthly_limit')
