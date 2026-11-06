@@ -8,6 +8,13 @@
       "when": 1790227154330,
       "tag": "0000_google_auth_master_admin_rls",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1793935880916,
+      "tag": "0001_ensure_my_profile",
+      "breakpoints": true
     }
   ]
 }

@@ -24,6 +24,7 @@ const ProtectedRoute = ({ children }: ProtectedRouteProps) => {
         if (session?.user) {
           // 사용자 승인 상태 확인
           setTimeout(async () => {
+            await supabase.rpc('ensure_my_profile');
             const { data: profile } = await supabase
               .from('profiles')
               .select('approval_status')
@@ -46,8 +47,8 @@ const ProtectedRoute = ({ children }: ProtectedRouteProps) => {
       setUser(session?.user ?? null);
       
       if (session?.user) {
-        // 사용자 승인 상태 확인
-        supabase
+        // 회원 정보가 비어 있으면 자동 복구 후 승인 상태 확인
+        supabase.rpc('ensure_my_profile').then(() => supabase
           .from('profiles')
           .select('approval_status')
           .eq('id', session.user.id)
@@ -55,7 +56,7 @@ const ProtectedRoute = ({ children }: ProtectedRouteProps) => {
           .then(({ data: profile }) => {
             setIsApproved(profile?.approval_status === 'approved');
             setLoading(false);
-          });
+          }));
       } else {
         setLoading(false);
       }
